@@ -1,0 +1,11 @@
+Only in UDP:
+
+    192.168.0.255 - broadcast msg (example)
+    broadcast addr = 192.168.0.0 | ~netmask (e.g. netmask = 255.255.255.0)
+
+    To send to broadcast addr <=> to send to all local addresses in the net
+    All local clients can get a message from a particular port from 1 broadcast sent msg.
+
+Server:
+    int optval = 1;
+    int setsockopt(int socket, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval));

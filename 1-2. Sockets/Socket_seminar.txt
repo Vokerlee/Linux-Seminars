@@ -1,0 +1,123 @@
+Sockets:
+
+int socket(int domain, int type, int protocol);
+
+int socket_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+AF_INET == IPv4
+
+SOCK_STREAM == TCP
+SOCK_DGRAM  == UDP
+
+1) UDP:
+
+    struct sockaddr_in
+    {
+        sa_family_t    sin_family; // address family // = AF_INET;
+        in_port_t      sin_port;   // port in network byte order (big endian) // = htons(2716);
+        struct in_addr sin_addr;   // internet address (IP destination)
+    };
+
+    /* Internet address */
+    struct in_addr
+    {
+        uint32_t       s_addr;     // address in network byte order
+    };
+
+    htonl() - host to network long, used for conversion byte order
+    ntohl() from network to host
+    htonl for ip, htons for ports
+
+    INADDR_LOOPBACK - ip address of yourself
+
+    Functions-helpers:
+    in_addr_t inet_addr(const char *cp); // converts string with ip address to binary representation
+
+How to send message:
+
+    ssize_t sendto(int sockfd, const void *buf, size_t len, int flags,
+                        const struct sockaddr *dest_addr, socklen_t addrlen); // ip address of destionation from our random ip
+
+    !! Cast from sockaddr* to sockaddr_in*, addrlen = sizeof(sockaddr_in)
+
+How to get message:
+
+    int bind(int sockfd, const struct sockaddr *addr,
+                    socklen_t addrlen); // own ip address (to give a name to socket)
+
+    INADDR_ANY -- можно принимать сообщения
+
+    recvfrom == sendto
+    ssize_t recvfrom(int sockfd, void *restrict buf, size_t len, int flags,
+                        struct sockaddr *restrict src_addr,
+                        socklen_t *restrict addrlen);
+
+2) TCP:
+
+Sender:
+
+    int connect(int sockfd, const struct sockaddr *addr,
+                   socklen_t addrlen); // destination ip address, return 0 = success
+
+    ssize_t send(int sockfd, const void *buf, size_t len, int flags); // or sendto
+
+    It is possible to use write() for socket_destination then
+
+Receiver:
+
+    int bind(int sockfd, const struct sockaddr *addr,
+                    socklen_t addrlen); // own ip address
+
+    int listen(int sockfd, int backlog); // now socket can be connected from others sockets
+    
+    int accept(int sockfd, struct sockaddr *restrict addr,
+                  socklen_t *restrict addrlen); // addr is empty - will be filled, then should be passed
+
+    // Then sender connect() => connection is OK
+
+    It is possible to use read() for socket_destination then
+
+    ssize_t recv(int sockfd, void *buf, size_t len, int flags);
+    ssize_t recvfrom(int sockfd, void *restrict buf, size_t len, int flags,
+                        struct sockaddr *restrict src_addr,
+                        socklen_t *restrict addrlen);
+
+Disconnnect (at the end):
+
+    int close(int fd);
+
+Others:
+
+    int setsockopt(int socket, int level, int option_name,
+           const void *option_value, socklen_t option_len);
+
+
+
+
+
+    
+
+
+
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
