@@ -34,15 +34,7 @@ int main()
 	}
 
     int optval = 1;
-	int error = setsockopt(socket_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval));
-	if (error == -1)
-	{
-		perror("setsockopt()");
-		close(socket_fd);
-		errx(EX_OSERR, "setsockopt() error");
-	}
-
-	error = setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+	int error = setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 	if (error == -1)
 	{
 		perror("setsockopt()");
@@ -51,14 +43,14 @@ int main()
 	}
 
 	// Binding
-	struct sockaddr_in server_addr = {0};
+	struct sockaddr_in receiver_addr = {0};
 	socklen_t length = sizeof(struct sockaddr_in);
 
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(BROADCAST_PORT);
-	server_addr.sin_addr.s_addr = INADDR_ANY;
+	receiver_addr.sin_family = AF_INET;
+	receiver_addr.sin_port = htons(BROADCAST_PORT);
+	receiver_addr.sin_addr.s_addr = INADDR_ANY;
 
-	int error_bind_server = bind(socket_fd, (struct sockaddr *) &server_addr, sizeof(struct sockaddr_in));
+	int error_bind_server = bind(socket_fd, (struct sockaddr *) &receiver_addr, sizeof(struct sockaddr_in));
 	if (error_bind_server == -1)
 	{
 		perror("bind()");
@@ -83,7 +75,7 @@ int main()
 
 	// Send msg to client!
 
-	const char new_msg[N_MAX_MSG_LEN] = "I know who you are!";
+	const char new_msg[N_MAX_MSG_LEN] = "I see you!";
 
     ssize_t sent_bytes = sendto(socket_fd, new_msg, sizeof(new_msg), 0, (struct sockaddr *) &accept_addr, length);
 	if (sent_bytes == -1 || sent_bytes != sizeof(new_msg))

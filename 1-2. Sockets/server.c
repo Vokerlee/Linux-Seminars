@@ -3,6 +3,8 @@
 int MAIN_SOCKET_FD;
 static pthread_mutex_t SERVER_SOCKETS_HANDLER_MUTEX = PTHREAD_MUTEX_INITIALIZER;
 
+static void close_main_socket();
+
 int main(int argc, char *argv[])
 {
 	// Setting connection type
@@ -28,7 +30,7 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-void close_main_socket()
+static void close_main_socket()
 {
 	close(MAIN_SOCKET_FD);
 }
@@ -67,6 +69,7 @@ void launch_tcp_server()
 	if (error_bind_server == -1)
 	{
 		perror("bind()");
+		close(socket_fd);
 		errx(EX_OSERR, "bind() error");
 	}
 
@@ -75,6 +78,7 @@ void launch_tcp_server()
 	if (error_listen == -1)
 	{
 		perror("listen()");
+		close(socket_fd);
 		errx(EX_OSERR, "listen() error");
 	}
 

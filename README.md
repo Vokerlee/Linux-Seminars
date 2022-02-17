@@ -1,1 +1,1 @@
-# Linux_seminars
+# Linux Seminars

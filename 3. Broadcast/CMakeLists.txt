@@ -4,29 +4,29 @@
 cmake_minimum_required (VERSION 3.8)
 
 # PROJECT PROPERTIES
-project ("Socket seminar" LANGUAGES C)
+project ("Broadcast seminar" LANGUAGES C)
 
 #########################################################################
 
 # EXECUTABLE FILE PROPERTIES
-set(SERVER_FILE_NAME "server")
-set(CLIENT_FILE_NAME "client")
+set(RECEIVER_FILE_NAME "receiver")
+set(SENDER_FILE_NAME "sender")
 
 set(HEADERS
         net.h
 )
 
-set(SERVER_SOURCES
-        server.c
+set(RECEIVER_SOURCES
+        broadcast_receiver.c
 )
 
-set(CLIENT_SOURCES
-        client.c
+set(SENDER_SOURCES
+        broadcast_sender.c
 )
 
 # EXECUTABLE FILE
-add_executable(${SERVER_FILE_NAME} ${SERVER_SOURCES})
-add_executable(${CLIENT_FILE_NAME} ${CLIENT_SOURCES})
+add_executable(${RECEIVER_FILE_NAME} ${RECEIVER_SOURCES})
+add_executable(${SENDER_FILE_NAME} ${SENDER_SOURCES})
 
 #########################################################################
 

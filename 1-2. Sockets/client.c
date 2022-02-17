@@ -45,6 +45,7 @@ void launch_tcp_client()
 	if (connect_error == -1)
 	{
 		perror("connect()");
+		close(socket_fd);
 		errx(EX_OSERR, "connect() error");
 	}
 
@@ -54,6 +55,7 @@ void launch_tcp_client()
 	if (sent_bytes == -1 || sent_bytes != sizeof(msg))
 	{
 		perror("write()");
+		close(socket_fd);
 		errx(EX_OSERR, "write() error");
 	}
 
@@ -82,6 +84,7 @@ void launch_udp_client()
 	if (connect_error == -1)
 	{
 		perror("connect()");
+		close(socket_fd);
 		errx(EX_OSERR, "connect() error");
 	}
 
@@ -91,6 +94,9 @@ void launch_udp_client()
 	if (sent_bytes == -1 || sent_bytes != sizeof(msg))
 	{
 		perror("send()");
+		close(socket_fd);
 		errx(EX_OSERR, "send() error");
 	}
+
+	close(socket_fd);
 }

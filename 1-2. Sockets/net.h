@@ -43,6 +43,5 @@ void launch_udp_client();
 void launch_tcp_server();
 void launch_udp_server();
 void *client_handler(void *connection_socket);
-void close_main_socket();
  
 #endif // !NET_H_
