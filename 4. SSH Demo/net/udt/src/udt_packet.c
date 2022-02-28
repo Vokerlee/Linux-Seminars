@@ -99,14 +99,22 @@ void udt_packet_parse(udt_packet_t packet)
         {
             case PACKET_TYPE_HANDSHAKE:             // handshake 
                 console_log("packet: handshake");
-                if (connection.is_client)
+
+                if (connection.is_client == 1)
                 {
                     udt_handshake_terminate();
                     break;
                 }
+
                 udt_packet_new_handshake(&packet);
                 udt_send_packet_buffer_write(&packet);
-                connection.is_connected = 1;
+                udt_handshake_terminate();
+
+                if (connection.is_client == 0)
+                {
+                    struct timeval tv = {.tv_sec = 1, .tv_usec = 0};
+                    setsockopt(connection.socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
+                }
                 break;
 
             case PACKET_TYPE_KEEPALIVE:             // keep-alive
@@ -127,8 +135,14 @@ void udt_packet_parse(udt_packet_t packet)
 
             case PACKET_TYPE_SHUTDOWN:              // shutdown
                 console_log("packet: shutdown");
-                connection.is_open = 0;
                 connection.is_connected = 0;
+                if (connection.is_client == 0) // server
+                {
+                    struct timeval tv = {.tv_sec = 0, .tv_usec = 0};
+                    setsockopt(connection.socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
+                    udt_connection_close();
+                }
+                    
                 break;
 
             case PACKET_TYPE_ACK2:                  // ack of ack
@@ -151,18 +165,21 @@ void udt_packet_parse(udt_packet_t packet)
     {
         console_log("packet: data");
 
-        if (packet.header._head1 & 0x80000000 &&
-            packet.header._head1 & 0x40000000)      // solo packet
-            udt_recv_buffer_write(packet.data, PACKET_DATA_SIZE);
+        if (connection.is_connected == 1)
+        {
+            if (packet.header._head1 & 0x80000000 &&
+                packet.header._head1 & 0x40000000)      // solo packet
+                udt_recv_buffer_write(packet.data, PACKET_DATA_SIZE);
 
-        else if (packet.header._head1 & 0x40000000) // last packet
-            udt_recv_buffer_write(packet.data, PACKET_DATA_SIZE);
+            else if (packet.header._head1 & 0x40000000) // last packet
+                udt_recv_buffer_write(packet.data, PACKET_DATA_SIZE);
 
-        else if (packet.header._head1 & 0x80000000) // first packet
-            udt_recv_buffer_write(packet.data, -1);
+            else if (packet.header._head1 & 0x80000000) // first packet
+                udt_recv_buffer_write(packet.data, -1);
 
-        else                                        // middle packet
-            udt_recv_buffer_write(packet.data, -1);
+            else                                        // middle packet
+                udt_recv_buffer_write(packet.data, -1);
+        }
     }
 
     return;

@@ -2,7 +2,7 @@
 #include "udt_packet.h"
 #include "udt_buffer.h"
 
-udt_conn_t connection;
+udt_conn_t connection = {0};
 
 void udt_handshake_init()
 {
@@ -34,20 +34,13 @@ void *udt_sender_start(void *arg)
     udt_conn_t *conn = (udt_conn_t *) arg;
     udt_packet_t packet;
 
-    while (1)
+    while (udt_send_packet_buffer_read(&packet))
     {
-        if (conn->is_open == 1 && udt_send_packet_buffer_read(&packet))
-        {
-            if (sendto(conn->socket_fd, &packet, sizeof(udt_packet_t), 0,
-                       &(conn->addr), sizeof(struct sockaddr)) == -1)
-                exit(errno);
+        if (sendto(conn->socket_fd, &packet, sizeof(udt_packet_t), 0,
+                    (struct sockaddr *) &(conn->addr), sizeof(struct sockaddr)) == -1)
+            exit(errno);
 
-            // Shutdown message
-            if (packet.header._head0 == 1408)
-                conn->is_open = 0;
-
-            memset(&packet, 0, sizeof(udt_packet_t));
-        }
+        memset(&packet, 0, sizeof(udt_packet_t));
     }
 
     void *retval = 0;
@@ -60,11 +53,23 @@ void *udt_receiver_start(void *arg)
     udt_packet_t packet;
 
     memset(&packet, 0, sizeof(udt_packet_t));
+    struct sockaddr_in sender_addr = {0};
 
     while (recvfrom(conn->socket_fd, &packet, sizeof(udt_packet_t), 0,
-           &(conn->addr), &(conn->addrlen)))
+           (struct sockaddr *) &sender_addr, &(conn->addrlen)))
     {
-        conn->is_open = 1;
+        printf("MSG from ip = %s, port = %d\n", inet_ntoa(sender_addr.sin_addr), (int) ntohs(sender_addr.sin_port));
+
+        if (conn->is_connected == 0)
+            conn->addr = sender_addr;
+        else if (sender_addr.sin_addr.s_addr != conn->addr.sin_addr.s_addr || sender_addr.sin_port != conn->addr.sin_port)
+        {
+            printf("ALIEN!!!\n"); // now we just skeep aliens, but in future they will be handled by other subservers
+            memset(&packet, 0, sizeof(udt_packet_t));
+            continue;
+        }
+            
+
         udt_packet_parse(packet);
         memset(&packet, 0, sizeof(udt_packet_t));
     }

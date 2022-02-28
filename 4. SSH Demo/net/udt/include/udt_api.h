@@ -9,7 +9,6 @@ int udt_startup();
 
 int udt_bind   (int socket_fd, const struct sockaddr *addr, socklen_t  len);
 int udt_connect(int socket_fd, const struct sockaddr *addr, socklen_t  len);
-int udt_accept (int socket_fd,       struct sockaddr *addr, socklen_t *len);
 
 ssize_t udt_recv(int socket_fd, char *buffer, int len);
 ssize_t udt_send(int socket_fd, char *buffer, int len);

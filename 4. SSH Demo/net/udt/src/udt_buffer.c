@@ -8,7 +8,12 @@
 int udt_buffer_init(udt_buffer_t *buffer)
 {
     if (buffer)
-        return pthread_mutex_init(&(buffer->mutex), NULL);
+    {
+        int retval1 = pthread_mutex_init(&(buffer->mutex), NULL);
+        int retval2 = pthread_cond_init (&(buffer->cond),  NULL);
+
+        return retval1 || retval2;
+    }
     else
         return -1;
 }
@@ -29,12 +34,12 @@ ssize_t udt_buffer_write(udt_buffer_t *buffer, char *data, ssize_t len)
     new_block->data = new_data;
     new_block->len  = len;
 
-    if (len == -1) // default
+    if (len == -1) // first or middle packets
     {
         new_block->last = 0;
         new_block->len  = PACKET_DATA_SIZE;
     } 
-    else
+    else // solo or last packets
         new_block->last = 1;
 
     linked_list_add((*buffer), new_block);
@@ -55,9 +60,7 @@ ssize_t udt_buffer_read(udt_buffer_t *buffer, char *data, ssize_t len)
     while (last == 0)
     {
         linked_list_get((*buffer), block);
-        if (block == NULL)
-            continue;
-
+            
         last = block->last;
         if (cur_pos >= len)
             break;
@@ -98,8 +101,6 @@ int udt_buffer_read_packet(udt_buffer_t *buffer, udt_packet_t *packet)
     udt_packet_block_t *block = NULL;
 
     linked_list_get((*buffer), block);
-    if (block == NULL)
-        return 0;
 
     *packet = block->packet;
     free(block);

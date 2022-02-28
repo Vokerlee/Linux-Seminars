@@ -28,6 +28,7 @@ struct _udt_buffer
     void *last;
     ssize_t size;
     pthread_mutex_t mutex;
+    pthread_cond_t cond;
 };
 
 int udt_buffer_init(udt_buffer_t *buffer);

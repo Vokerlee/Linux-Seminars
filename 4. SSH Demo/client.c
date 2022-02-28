@@ -69,38 +69,11 @@ int launch_udp_client(in_addr_t dest_ip, int file_fd, const char *file_name)
 	else
         fprintf(stderr, "Connected\n");
 
-	size_t size;
-    char *line;
-    udt_send(socket_fd, "\tClient wants to talk", 22);
-    while (1)
-	{
-        printf("\t\n>> ");
-        size = 0;
-        size = getline(&line, &size, stdin);
-        if (size == 1) break;
-        *(line + size - 1) = '\0';
-        udt_send(socket_fd, line, size);
-        free(line);
-    }
+	char buffer[1000] = {0};
+	strcpy(buffer, "LLLLLLLLLJJJDJJ jhdjvbshdbvhjsbdvhjbdscjebdvhjksjdbvhjce,whsdbvbhj,mehwbshj vm"
+				   "efwsdfsdfdsfsdfdfgnj.k/.k,jm55555555555555555555555555555555555555555555555555");	
+
+    udt_send(socket_fd, buffer, 157);
 
 	udt_close(socket_fd);
-
-	
-
-
-	// int socket_fd = ipv4_sock_connect(SOCK_DGRAM, dest_ip, htons(USING_PORT));
-	// if (socket_fd == -1)
-	// 	errx(EX_OSERR, "ipv4_sock_connect() error");
-
-	// const char msg[N_MAX_MSG_LEN] = "Test message!!!!!!99999UDP";
-
-	// ssize_t sent_bytes = send(socket_fd, msg, sizeof(msg), 0);
-	// if (sent_bytes == -1 || sent_bytes != sizeof(msg))
-	// {
-	// 	perror("send()");
-	// 	close(socket_fd);
-	// 	errx(EX_OSERR, "send() error");
-	// }
-
-	// close(socket_fd);
 }

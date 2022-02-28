@@ -9,11 +9,10 @@ typedef struct
 
     struct
     {
-        struct sockaddr addr;
+        struct sockaddr_in addr;
         socklen_t addrlen;
     };
 
-    int is_open;
     int is_connected;
     int is_client;
     int type;

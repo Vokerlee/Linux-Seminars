@@ -127,8 +127,8 @@ int launch_udp_server(in_addr_t ip)
         exit(errno);
     }
 
-	char buffer[5000];
-    while (udt_recv(socket_fd, buffer, 5000))
+	char buffer[1000] = {0};
+    if (udt_recv(socket_fd, buffer, 157))
 	{
         printf("\tMessage: %s\n\n", buffer);
         memset(buffer, 0, sizeof(buffer));
@@ -136,87 +136,5 @@ int launch_udp_server(in_addr_t ip)
 
 	while(1);
 
-	if (udt_close(socket_fd) == -1)
-	{
-        fprintf(stderr, "Could not close socket\n");
-        exit(errno);
-    }
-
 	return 0;
-
-
-
-
-
-
-	// // Creating socket
-	// int socket_fd = socket(AF_INET, SOCK_DGRAM, 0); // UDP
-	// if (socket_fd == -1)
-	// {
-	// 	perror("socket()");
-	// 	errx(EX_OSERR, "socket() error");
-	// }
-
-	// int optval = 1;
-	// int error = setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-	// if (error == -1)
-	// {
-	// 	perror("setsockopt()");
-	// 	close(socket_fd);
-	// 	errx(EX_OSERR, "setsockopt() error");
-	// }
-
-	// MAIN_SOCKET_FD = socket_fd;
-
-	// // Binding
-	// struct sockaddr_in server_addr = {0};
-
-	// server_addr.sin_family = AF_INET;
-	// server_addr.sin_port = htons(USING_PORT);
-	// server_addr.sin_addr.s_addr = inet_addr(server_ip);
-
-	// int error_bind_server = bind(socket_fd, (struct sockaddr *) &server_addr, sizeof(struct sockaddr_in));
-	// if (error_bind_server == -1)
-	// {
-	// 	perror("bind()");
-	// 	errx(EX_OSERR, "bind() error");
-	// }
-
-	// char msg[N_MAX_MSG_LEN] = {0};
-
-	// while(1)
-	// {
-	// 	memset(msg, 0, N_MAX_MSG_LEN);
-
-	// 	struct sockaddr_in accept_addr = {0};
-	// 	socklen_t length = sizeof(struct sockaddr_in);
-
-	// 	ssize_t n_received_bytes = recvfrom(socket_fd, msg, sizeof(msg), 0, (struct sockaddr *) &accept_addr, &length);
-	// 	if (n_received_bytes == -1)
-	// 	{
-	// 		perror("recvfrom()");
-	// 		errno = 0;
-	// 		continue;
-	// 	}
-
-	// 	int mutex_error = pthread_mutex_lock(&SERVER_SOCKETS_HANDLER_MUTEX);
-	// 	if (mutex_error == -1)
-	// 	{
-	// 		perror("pthread_mutex_lock()");
-	// 		exit(EXIT_FAILURE);
-	// 	}
-
-	// 	printf("New message!\n");
-	//  	printf("From IP = %s, port = %d!\n\n", inet_ntoa(accept_addr.sin_addr), (int) ntohs(accept_addr.sin_port));
-
-	// 	printf("Message:\n%s\n", msg);
-	// 	printf("==================================================\n");
-
-	// 	mutex_error = pthread_mutex_unlock(&SERVER_SOCKETS_HANDLER_MUTEX);
-	// 	if (mutex_error == -1)
-	// 	{
-	// 		perror("pthread_mutex_unlock()");
-	// 		exit(EXIT_FAILURE);
-	// 	}
-	// }
 }

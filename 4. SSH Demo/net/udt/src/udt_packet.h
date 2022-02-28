@@ -1,10 +1,10 @@
 #ifndef UDT_PACKET_H_
 #define UDT_PACKET_H_
 
-#include "net_config.h"
+#include "net.h"
 
 #define PACKET_HEADER_SIZE 4
-#define PACKET_DATA_SIZE   4096
+// #define PACKET_DATA_SIZE   4096
 
 #define PACKET_MASK_CTRL 0x80000000
 #define PACKET_MASK_SEQ  0x7FFFFFFF
@@ -58,7 +58,7 @@
     ((packet).header._head1 &= 0xF0000000);       \
     ((packet).header._head1 |= (msgnum))
 
-#define packet_set_timestamp(packet, timestamp_)   \
+#define packet_set_timestamp(packet, timestamp_)  \
     ((packet).header._head2 |= timestamp_)
 
 #define packet_set_id(packet, packet_id)          \

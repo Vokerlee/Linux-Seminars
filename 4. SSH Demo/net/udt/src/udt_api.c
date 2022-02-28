@@ -21,7 +21,6 @@ int udt_bind(int socket_fd, const struct sockaddr *addr, socklen_t len)
         return -1;
 
     connection.socket_fd    = socket_fd;
-    connection.is_open      = 1;
     connection.addrlen      = len;
     connection.is_connected = 0;
     connection.is_client    = 0;
@@ -47,9 +46,8 @@ int udt_connect(int socket_fd, const struct sockaddr *addr, socklen_t len)
         return -1;
 
     connection.socket_fd    = socket_fd;
-    connection.addr         = *addr;
+    connection.addr         = *((struct sockaddr_in *) addr);
     connection.addrlen      = len;
-    connection.is_open      = 1;
     connection.is_connected = 0;
     connection.is_client    = 1;
 
@@ -71,29 +69,14 @@ int udt_connect(int socket_fd, const struct sockaddr *addr, socklen_t len)
     return 0;
 }
 
-int udt_accept(int socket_fd, struct sockaddr *addr, socklen_t *len)
-{
-    return accept(socket_fd, addr, len);
-}
-
 ssize_t udt_recv(int socket_fd, char *buffer, int len)
 {
-    ssize_t num_read = 0;
-
-    do
-    {
-        if (connection.is_open == 0 && connection.is_connected == 0)
-            return 0;
-
-        num_read = udt_recv_buffer_read(buffer, len);
-    } while (num_read == 0);
-
-    return num_read;
+    return udt_recv_buffer_read(buffer, len);
 }
 
 ssize_t udt_send(int socket_fd, char *buffer, int len)
 {
-    if (!connection.is_connected)
+    if (connection.is_connected == 0)
         return -1;
     
     return udt_send_buffer_write(buffer, len);
@@ -102,29 +85,22 @@ ssize_t udt_send(int socket_fd, char *buffer, int len)
 int udt_close(int socket_fd)
 {
     udt_connection_close();
-    while (connection.is_open);
+    while (connection.is_connected == 1);
 
     return close(socket_fd);
 }
 
 ssize_t udt_recvfile(int socket_fd, int fd, off_t *offset, ssize_t filesize)
 {
-    ssize_t num_read = 0;
+    if (connection.is_connected == 0)
+        return -1;
 
-    do
-    {
-        if (connection.is_open == 0 && connection.is_connected == 0)
-            return 0;
-
-        num_read = udt_recv_file_buffer_read(fd, offset, filesize);
-    } while (num_read == 0);
-
-    return num_read;
+    return udt_recv_file_buffer_read(fd, offset, filesize);
 }
 
 ssize_t udt_sendfile(int socket_fd, int fd, off_t offset, ssize_t filesize)
 {
-    if (!connection.is_connected)
+    if (connection.is_connected == 0)
         return -1;
     
     return udt_send_file_buffer_write(fd, offset, filesize);

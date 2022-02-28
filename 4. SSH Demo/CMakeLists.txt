@@ -71,6 +71,7 @@ add_compile_options(
     -Wall
     -Wextra
     -Wpedantic
+    -Wno-pointer-to-int-cast
 )
 
 #########################################################################

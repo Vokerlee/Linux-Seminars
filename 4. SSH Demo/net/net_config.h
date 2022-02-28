@@ -26,7 +26,6 @@
 
 #define UDT_VERSION_MAJOR 0
 #define UDT_VERSION_MINOR 1
-
 #define UDT_VERSION 4
 
 #define N_MAX_FILENAME_LEN 1024
