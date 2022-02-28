@@ -1,131 +1,131 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "net.h"
 #include "udt_api.h"
-#include "core.h"
-#include "receiver.h"
-#include "sender.h"
-#include "util.h"
-#include "buffer.h"
+#include "udt_core.h"
+#include "udt_utils.h"
+#include "udt_buffer.h"
 
-extern conn_t connection;
+extern udt_conn_t connection;
 
 int udt_startup()
 {
-    send_buffer_init();
-    recv_buffer_init();
+    return udt_send_buffer_init() || udt_recv_buffer_init();
+}
+
+int udt_bind(int socket_fd, const struct sockaddr *addr, socklen_t len)
+{
+    int bind_error = bind(socket_fd, (const struct sockaddr *) addr, len);
+    if (bind_error == -1)
+        return -1;
+
+    connection.socket_fd    = socket_fd;
+    connection.is_open      = 1;
+    connection.addrlen      = len;
+    connection.is_connected = 0;
+    connection.is_client    = 0;
+
+    pthread_t recv_thread = {0};
+    pthread_t send_thread = {0};
+
+    int recv_pthread_error = pthread_create(&recv_thread, NULL, udt_receiver_start, (void *) &connection);
+    if (recv_pthread_error == -1)
+        return -1;
+
+    int send_pthread_error = pthread_create(&send_thread, NULL, udt_sender_start, (void *) &connection);
+    if (send_pthread_error == -1)
+        return -1;
 
     return 0;
 }
 
-socket_t udt_socket(af_type af, sock_type type, int protocol)
+int udt_connect(int socket_fd, const struct sockaddr *addr, socklen_t len)
 {
-    if (type != SOCK_STREAM && type != SOCK_DGRAM) {
-        errno = 5003;  /* bad params */
+    int connect_error = connect(socket_fd, (struct sockaddr *) addr, len);
+    if (connect_error == -1)
         return -1;
-    }
-    connection.type = type;
 
-    return socket(af, type, 0);
-}
-
-int udt_bind (socket_t sock, sockaddr_t *addr, int len)
-{
-    int result = 0;
-
-    result = bind(sock, (struct sockaddr *)addr, len);
-    if (result == -1) return result;
-
-    connection.sock = sock;
-    connection.is_open = 1;
-    connection.addrlen = len;
+    connection.socket_fd    = socket_fd;
+    connection.addr         = *addr;
+    connection.addrlen      = len;
+    connection.is_open      = 1;
     connection.is_connected = 0;
-    connection.is_client = 0;
+    connection.is_client    = 1;
 
-    thread_start((thread_worker_t) receiver_start, (&connection));
-    thread_start((thread_worker_t) sender_start, (&connection));
+    pthread_t recv_thread = {0};
+    pthread_t send_thread = {0};
 
-    return result;
-}
+    int recv_pthread_error = pthread_create(&recv_thread, NULL, udt_receiver_start, (void *) &connection);
+    if (recv_pthread_error == -1)
+        return -1;
 
-int udt_connect(socket_t sock, const sockaddr_t *addr, int len)
-{
-    int result = 0;
+    int send_pthread_error = pthread_create(&send_thread, NULL, udt_sender_start, (void *) &connection);
+    if (send_pthread_error == -1)
+        return -1;
 
-    result = connect(sock, (struct sockaddr *)addr, len);
-    if (result == -1) return result;
-
-    connection.sock = sock;
-    connection.addr = *addr;
-    connection.addrlen = len;
-    connection.is_open = 1;
-    connection.is_connected = 0;
-    connection.is_client = 1;
-
-    thread_start((thread_worker_t) receiver_start, (&connection));
-    thread_start((thread_worker_t) sender_start,   (&connection));
-
-    handshake_init();
+    udt_handshake_init();
 
     while (!connection.is_connected);
-    return result;
+    
+    return 0;
 }
 
-int udt_accept(socket_t sock, sockaddr_t *addr, int *addr_len)
+int udt_accept(int socket_fd, struct sockaddr *addr, socklen_t *len)
 {
-    return accept(sock, addr, (unsigned int *) addr_len);
+    return accept(socket_fd, addr, len);
 }
 
-int udt_listen(socket_t sock, int backlog)
+ssize_t udt_recv(int socket_fd, char *buffer, int len)
 {
-    return listen(sock, backlog);
-}
+    ssize_t num_read = 0;
 
-int udt_recv(socket_t sock, char *buffer, int len, int flags)
-{
-    int num_read;
-
-    do {
+    do
+    {
         if (connection.is_open == 0 && connection.is_connected == 0)
             return 0;
 
-        num_read = recv_buffer_read(buffer, len);
+        num_read = udt_recv_buffer_read(buffer, len);
     } while (num_read == 0);
 
     return num_read;
 }
 
-int udt_send(socket_t sock, char *buffer, int len, int flags)
+ssize_t udt_send(int socket_fd, char *buffer, int len)
 {
-    if (!connection.is_connected) return -1;
-    return send_buffer_write(buffer, len);
+    if (!connection.is_connected)
+        return -1;
+    
+    return udt_send_buffer_write(buffer, len);
 }
 
-int udt_close(socket_t sock)
+int udt_close(int socket_fd)
 {
-    connection_close();
+    udt_connection_close();
     while (connection.is_open);
-    return close(sock);
+
+    return close(socket_fd);
 }
 
-int64_t udt_recvfile(socket_t sock, int file, int64_t *offset, int64_t filesize,
-                     int blocksize)
+ssize_t udt_recvfile(int socket_fd, int fd, off_t *offset, ssize_t filesize)
 {
-    int num_read = 0;
+    ssize_t num_read = 0;
 
-    do {
+    do
+    {
         if (connection.is_open == 0 && connection.is_connected == 0)
             return 0;
 
-        num_read = recv_file_buffer_read(file, offset, filesize, blocksize);
+        num_read = udt_recv_file_buffer_read(fd, offset, filesize);
     } while (num_read == 0);
 
     return num_read;
 }
 
-int64_t udt_sendfile(socket_t sock, int file, int64_t offset, int64_t filesize,
-                     int blocksize)
+ssize_t udt_sendfile(int socket_fd, int fd, off_t offset, ssize_t filesize)
 {
-    if (!connection.is_connected) return -1;
-    return send_file_buffer_write(file, offset, filesize, blocksize);
+    if (!connection.is_connected)
+        return -1;
+    
+    return udt_send_file_buffer_write(fd, offset, filesize);
 }

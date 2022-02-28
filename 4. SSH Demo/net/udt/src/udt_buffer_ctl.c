@@ -55,7 +55,7 @@ ssize_t udt_send_buffer_write(char *data, ssize_t len)
         packet_set_timestamp(packet, 0x0000051c);
         packet_set_id       (packet, 0x08c42c74);
 
-        packet_new(&packet, buffer, size);
+        udt_packet_new(&packet, buffer, size);
         udt_send_packet_buffer_write(&packet);
 
         buffer += size;
@@ -68,7 +68,7 @@ ssize_t udt_send_buffer_write(char *data, ssize_t len)
     packet_set_timestamp(packet, 0x0000051c);
     packet_set_id       (packet, 0x08c42c74);
 
-    packet_new(&packet, NULL, 0);
+    udt_packet_new(&packet, NULL, 0);
     udt_send_packet_buffer_write(&packet);
 
     return retval;
@@ -151,7 +151,7 @@ ssize_t udt_send_file_buffer_write(int fd, off_t offset, ssize_t size)
         packet_set_timestamp(packet, 0x0000051c);
         packet_set_id       (packet, 0x08c42c74);
 
-        packet_new(&packet, buffer, len);
+        udt_packet_new(&packet, buffer, len);
         udt_send_packet_buffer_write(&packet);
 
         boundary = PACKET_BOUNDARY_NONE;
@@ -165,7 +165,7 @@ ssize_t udt_send_file_buffer_write(int fd, off_t offset, ssize_t size)
     packet_set_timestamp(packet, 0x0000051c); /* TODO: calculate time */
     packet_set_id       (packet, 0x08c42c74); /* TODO: generate an id */
 
-    packet_new(&packet, NULL, 0);
+    udt_packet_new(&packet, NULL, 0);
     udt_send_packet_buffer_write(&packet);
 
     return retval;

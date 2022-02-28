@@ -1,6 +1,30 @@
 #include "utils.h"
 #include "net.h"
 
+int ipv4_socket(int type, int optname)
+{
+	if (type != SOCK_STREAM && type != SOCK_DGRAM)
+		return -1;
+
+
+	int socket_fd = socket(AF_INET, type, 0);
+
+	if (optname != 0 && socket_fd != -1)
+	{
+		int optval = 1;
+		int setsockopt_error = setsockopt(socket_fd, SOL_SOCKET, optname, &optval, sizeof(optval));
+		if (setsockopt_error == -1)
+			return -1;
+	}
+
+	return socket_fd;
+}
+
+
+
+
+
+
 int ipv4_connect(int socket_fd, in_addr_t dest_ip, in_port_t dest_port)
 {
     int saved_errno = errno;

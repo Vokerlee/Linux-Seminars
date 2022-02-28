@@ -2,6 +2,9 @@
     "files.associations": {
         "types.h": "c",
         "unistd.h": "c",
-        "features.h": "c"
+        "features.h": "c",
+        "udt_packet.h": "c",
+        "net_config.h": "c",
+        "stdio.h": "c"
     }
 }

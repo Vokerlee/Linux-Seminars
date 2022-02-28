@@ -126,4 +126,11 @@ typedef struct
     char                data[PACKET_DATA_SIZE];
 } udt_packet_t;
 
+void udt_packet_deserialize   (udt_packet_t *packet);
+void udt_packet_serialize     (udt_packet_t *packet);
+
+int  udt_packet_new           (udt_packet_t *packet, char *buffer, int len);
+int  udt_packet_new_handshake (udt_packet_t *packet);
+void udt_packet_parse         (udt_packet_t  packet);
+
 #endif // !UDT_PACKET_H_

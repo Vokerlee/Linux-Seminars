@@ -106,8 +106,49 @@ void *client_handler(void *connection_socket)
 	pthread_exit(retval);
 }
 
-void launch_udp_server(in_addr_t ip)
+int launch_udp_server(in_addr_t ip)
 {
+	udt_startup();
+
+	int socket_fd = ipv4_socket(SOCK_DGRAM, SO_REUSEADDR);
+	if (socket_fd == -1)
+		return -1;
+
+	struct sockaddr_in server_addr = {0};
+	socklen_t length = sizeof(struct sockaddr_in);
+
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = htons(USING_PORT);
+	server_addr.sin_addr.s_addr = ip;	
+
+	if (udt_bind(socket_fd, (struct sockaddr *) &server_addr, length) == -1)
+	{
+        fprintf(stderr, "Could not connect to socket\n");
+        exit(errno);
+    }
+
+	char buffer[5000];
+    while (udt_recv(socket_fd, buffer, 5000))
+	{
+        printf("\tMessage: %s\n\n", buffer);
+        memset(buffer, 0, sizeof(buffer));
+    }
+
+	while(1);
+
+	if (udt_close(socket_fd) == -1)
+	{
+        fprintf(stderr, "Could not close socket\n");
+        exit(errno);
+    }
+
+	return 0;
+
+
+
+
+
+
 	// // Creating socket
 	// int socket_fd = socket(AF_INET, SOCK_DGRAM, 0); // UDP
 	// if (socket_fd == -1)

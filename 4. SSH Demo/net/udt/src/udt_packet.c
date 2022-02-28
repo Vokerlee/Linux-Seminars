@@ -101,11 +101,11 @@ void udt_packet_parse(udt_packet_t packet)
                 console_log("packet: handshake");
                 if (connection.is_client)
                 {
-                    handshake_terminate();
+                    udt_handshake_terminate();
                     break;
                 }
-                packet_new_handshake(&packet);
-                send_packet_buffer_write(&packet);
+                udt_packet_new_handshake(&packet);
+                udt_send_packet_buffer_write(&packet);
                 connection.is_connected = 1;
                 break;
 

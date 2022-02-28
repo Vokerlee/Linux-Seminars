@@ -1,6 +1,8 @@
 #ifndef UDT_UTILS_H_
 #define UDT_UTILS_H_
 
+#define DEBUG
+
 #ifdef DEBUG
 
 #include <stdio.h>
@@ -12,7 +14,7 @@
 #define console_log_mod(MODIFIER, LOGDATA)
 #define console_log(LOGDATA)
 
-#endif  /* end of DEBUG */
+#endif // !DEBUG
 
 #define linked_list_add(buffer, block)              \
 {                                                   \

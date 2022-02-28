@@ -10,7 +10,7 @@ typedef struct
     struct
     {
         struct sockaddr addr;
-        unsigned int addrlen;
+        socklen_t addrlen;
     };
 
     int is_open;
@@ -25,5 +25,8 @@ void udt_handshake_init      ();
 void udt_handshake_terminate ();
 
 void udt_connection_close    ();
+
+void *udt_sender_start  (void *arg);
+void *udt_receiver_start(void *arg);
 
 #endif // !UDT_CORE_H_

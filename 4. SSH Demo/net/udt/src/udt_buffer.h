@@ -37,7 +37,7 @@ int udt_recv_buffer_init();
 ssize_t udt_buffer_write(udt_buffer_t *buffer, char *data, ssize_t len);
 ssize_t udt_buffer_read (udt_buffer_t *buffer, char *data, ssize_t len);
 int udt_buffer_write_packet(udt_buffer_t *buffer, udt_packet_t *packet);
-int udt_buffer_read_packet (udt_buffer_t *buffer, udt_packet_t *packet)
+int udt_buffer_read_packet (udt_buffer_t *buffer, udt_packet_t *packet);
 
 ssize_t udt_recv_buffer_write(char *data, ssize_t len);
 ssize_t udt_recv_buffer_read (char *data, ssize_t len);
@@ -47,6 +47,6 @@ int udt_send_packet_buffer_write(udt_packet_t *packet);
 int udt_send_packet_buffer_read (udt_packet_t *packet);
 
 ssize_t udt_recv_file_buffer_read (int fd, off_t *offset, ssize_t size);
-ssize_t udt_send_file_buffer_write(int fd, off_t offset, ssize_t size);
+ssize_t udt_send_file_buffer_write(int fd, off_t  offset, ssize_t size);
 
 #endif // !UDT_BUFFER_H_

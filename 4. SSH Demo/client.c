@@ -48,9 +48,49 @@ int launch_tcp_client(in_addr_t dest_ip, int file_fd, const char *file_name)
 
 int launch_udp_client(in_addr_t dest_ip, int file_fd, const char *file_name)
 {
-	int socket_fd = ipv4_sock_connect(SOCK_DGRAM, dest_ip, htons(USING_PORT));
+	udt_startup();
+
+	int socket_fd = ipv4_socket(SOCK_DGRAM, SO_REUSEADDR);
 	if (socket_fd == -1)
-		errx(EX_OSERR, "ipv4_sock_connect() error");
+		return -1;
+
+	struct sockaddr_in server_addr = {0};
+	socklen_t length = sizeof(struct sockaddr_in);
+
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = htons(USING_PORT);
+	server_addr.sin_addr.s_addr = dest_ip;
+
+	if (udt_connect(socket_fd, (struct sockaddr *) &server_addr, length) == -1)
+	{
+        fprintf(stderr, "Could not connect to socket\n");
+        exit(errno);
+    }
+	else
+        fprintf(stderr, "Connected\n");
+
+	size_t size;
+    char *line;
+    udt_send(socket_fd, "\tClient wants to talk", 22);
+    while (1)
+	{
+        printf("\t\n>> ");
+        size = 0;
+        size = getline(&line, &size, stdin);
+        if (size == 1) break;
+        *(line + size - 1) = '\0';
+        udt_send(socket_fd, line, size);
+        free(line);
+    }
+
+	udt_close(socket_fd);
+
+	
+
+
+	// int socket_fd = ipv4_sock_connect(SOCK_DGRAM, dest_ip, htons(USING_PORT));
+	// if (socket_fd == -1)
+	// 	errx(EX_OSERR, "ipv4_sock_connect() error");
 
 	// const char msg[N_MAX_MSG_LEN] = "Test message!!!!!!99999UDP";
 
