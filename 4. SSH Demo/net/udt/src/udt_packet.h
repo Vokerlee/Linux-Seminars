@@ -1,7 +1,7 @@
 #ifndef UDT_PACKET_H_
 #define UDT_PACKET_H_
 
-#include "net.h"
+#include "net_config.h"
 
 #define PACKET_HEADER_SIZE 4
 // #define PACKET_DATA_SIZE   4096

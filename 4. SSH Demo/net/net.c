@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "net_config.h"
 #include "net.h"
 
 int ipv4_socket(int type, int optname)
@@ -19,11 +20,6 @@ int ipv4_socket(int type, int optname)
 
 	return socket_fd;
 }
-
-
-
-
-
 
 int ipv4_connect(int socket_fd, in_addr_t dest_ip, in_port_t dest_port)
 {

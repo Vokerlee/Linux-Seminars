@@ -27,8 +27,8 @@ int udt_bind(int socket_fd, const struct sockaddr *addr, socklen_t len)
     connection.is_connected = 0;
     connection.is_client    = 0;
 
-    pthread_t recv_thread = {0};
-    pthread_t send_thread = {0};
+    pthread_t recv_thread;
+    pthread_t send_thread;
 
     int recv_pthread_error = pthread_create(&recv_thread, NULL, udt_receiver_start, (void *) &connection);
     if (recv_pthread_error == -1)
@@ -58,8 +58,8 @@ int udt_connect(int socket_fd, const struct sockaddr *addr, socklen_t len)
     connection.is_connected = 0;
     connection.is_client    = 1;
 
-    pthread_t recv_thread = {0};
-    pthread_t send_thread = {0};
+    pthread_t recv_thread;
+    pthread_t send_thread;
 
     int recv_pthread_error = pthread_create(&recv_thread, NULL, udt_receiver_start, (void *) &connection);
     if (recv_pthread_error == -1)
@@ -69,14 +69,14 @@ int udt_connect(int socket_fd, const struct sockaddr *addr, socklen_t len)
     if (send_pthread_error == -1)
         return -1;
 
-    struct timeval tv = {.tv_sec = 1, .tv_usec = 0};
+    struct timeval tv = {.tv_sec = UDT_SECONDS_TIMEOUT_CONN, .tv_usec = UDT_USECONDS_TIMEOUT_CONN};
     setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
 
     udt_handshake_init();
 
     if (connection.is_connected == 1)
     {
-        struct timeval new_tv = {.tv_sec = 2, .tv_usec = 0};
+        struct timeval new_tv = {.tv_sec = UDT_SECONDS_TIMEOUT_CLIENT, .tv_usec = UDT_USECONDS_TIMEOUT_CLIENT};
         setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &new_tv, sizeof(struct timeval));
 
         connection.recv_thread = recv_thread;
@@ -157,16 +157,38 @@ int udt_close(int socket_fd)
 
 ssize_t udt_recvfile(int socket_fd, int fd, off_t *offset, ssize_t filesize)
 {
-    if (connection.is_connected == 0)
+    if (connection.is_connected == 0 && connection.is_client == 1)
         return -1;
 
-    return udt_recv_file_buffer_read(fd, offset, filesize);
+    ssize_t received_bytes = udt_recv_file_buffer_read(fd, offset, filesize);
+    if (connection.is_connected == 0 && connection.is_client == 1)
+    {
+        pthread_cancel(connection.recv_thread);
+        pthread_cancel(connection.send_thread);
+
+        memset(&connection, 0, sizeof(connection));
+
+        return -1;
+    }
+
+    return received_bytes;
 }
 
 ssize_t udt_sendfile(int socket_fd, int fd, off_t offset, ssize_t filesize)
 {
     if (connection.is_connected == 0)
         return -1;
-    
-    return udt_send_file_buffer_write(fd, offset, filesize);
+
+    ssize_t sent_bytes = udt_send_file_buffer_write(fd, offset, filesize);
+    if (connection.is_connected == 0 && connection.is_client == 1)
+    {
+        pthread_cancel(connection.recv_thread);
+        pthread_cancel(connection.send_thread);
+
+        memset(&connection, 0, sizeof(connection));
+
+        return -1;
+    }
+        
+    return sent_bytes;
 }

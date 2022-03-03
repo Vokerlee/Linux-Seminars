@@ -63,16 +63,7 @@ ssize_t udt_send_buffer_write(char *data, ssize_t len)
         udt_packet_new(&packet, buffer, size);
         udt_send_packet_buffer_write(&packet);
 
-        while (connection.is_in_wait == 1); 
-
-        // Add code:
-        // In core.c in case of long wait do 
-        // if (connection.is_in_wait == 1) {it is a sender, which waits for ack}
-        // 1) connection.is_connected = 0
-        // 2) connection.is_in_wait = 0
-        // 3) Additionally: in case of disconnect client should completely close and clean everything as if it is udt_close()
-
-        // TEST ALL ABOVE!!!!
+        while (connection.is_in_wait == 1); // wait for ACK signal
 
         if (connection.is_connected == 0)
             return retval - buf_len - PACKET_DATA_SIZE;
@@ -109,13 +100,13 @@ ssize_t udt_recv_file_buffer_read(int fd, off_t *offset, ssize_t size)
     ssize_t retval = 0;
     long buf_size = size;
 
-    if (fd < 0)
+    if (fd < 0 || offset == NULL)
         return -1;
 
     while (buf_size > 0)
     {
         int n_read_bytes = udt_buffer_read(&RECV_BUFFER, data, PACKET_DATA_SIZE);
-        if (n_read_bytes == 0)
+        if (n_read_bytes != PACKET_DATA_SIZE)
             break; // the situation when connection has lost and there is nothing to read
 
         ssize_t bytes_to_write = (buf_size > PACKET_DATA_SIZE) ? PACKET_DATA_SIZE : buf_size;
@@ -170,19 +161,25 @@ ssize_t udt_send_file_buffer_write(int fd, off_t offset, ssize_t size)
         packet_set_timestamp(packet, 0x0000051c);
         packet_set_id       (packet, 0x08c42c74);
 
+        connection.is_in_wait = 1;
+
         udt_packet_new(&packet, buffer, len);
         udt_send_packet_buffer_write(&packet);
 
-        boundary = PACKET_BOUNDARY_NONE;
+        while (connection.is_in_wait == 1); // wait for ACK signal
 
+        if (connection.is_connected == 0)
+            return retval - len;
+
+        boundary = PACKET_BOUNDARY_NONE;
         offset += len;
     }
 
     packet_clear_header (packet);
     packet_set_ctrl     (packet);
-    packet_set_type     (packet, PACKET_TYPE_ACK);
-    packet_set_timestamp(packet, 0x0000051c); /* TODO: calculate time */
-    packet_set_id       (packet, 0x08c42c74); /* TODO: generate an id */
+    packet_set_type     (packet, PACKET_TYPE_ACK2);
+    packet_set_timestamp(packet, 0x0000051c);
+    packet_set_id       (packet, 0x08c42c74);
 
     udt_packet_new(&packet, NULL, 0);
     udt_send_packet_buffer_write(&packet);

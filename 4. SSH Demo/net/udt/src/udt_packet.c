@@ -114,7 +114,7 @@ void udt_packet_parse(udt_packet_t packet)
                     udt_send_packet_buffer_write(&packet);
                     udt_handshake_terminate();
 
-                    struct timeval tv = {.tv_sec = 2, .tv_usec = 0};
+                    struct timeval tv = {.tv_sec = UDT_SECONDS_TIMEOUT_SERVER, .tv_usec = UDT_USECONDS_TIMEOUT_SERVER};
                     setsockopt(connection.socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
                 }
 

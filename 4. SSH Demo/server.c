@@ -1,9 +1,6 @@
 #include "client_server.h"
 
-int SERVER_SOCKET_FD;
 static pthread_mutex_t SERVER_SOCKETS_HANDLER_MUTEX = PTHREAD_MUTEX_INITIALIZER;
-
-static void close_main_socket();
 
 int main(int argc, char *argv[])
 {
@@ -16,29 +13,18 @@ int main(int argc, char *argv[])
 	else if (strcmp(argv[1], "--tcp") != 0)
 		errx(EX_USAGE, "error: invalid argument \"%s\"", argv[1]);
 
-	atexit(close_main_socket);
-
 	// Launch server
 	if (connection_type == SOCK_STREAM)
-		launch_tcp_server(inet_addr(argv[2]));
+		return launch_tcp_server(inet_addr(argv[2]));
 	else if (connection_type == SOCK_DGRAM)
-		launch_udp_server(inet_addr(argv[2]));
-
-	return 0;
+		return launch_udp_server(inet_addr(argv[2]));
 }
 
-static void close_main_socket()
-{
-	close(SERVER_SOCKET_FD);
-}
-
-void launch_tcp_server(in_addr_t ip)
+int launch_tcp_server(in_addr_t ip)
 {
 	int socket_fd = ipv4_sock_bind(SOCK_STREAM, ip, htons(USING_PORT));
 	if (socket_fd == -1)
 		errx(EX_OSERR, "ipv4_sock_connect() error");
-
-	SERVER_SOCKET_FD = socket_fd;
 
 	// Listening on
 	int error_listen = listen(socket_fd, N_MAX_PENDING_CONNECTIONS);
@@ -83,6 +69,8 @@ void launch_tcp_server(in_addr_t ip)
 			continue;
 		}
 	}	
+
+	return 0;
 }
 
 void *client_handler(void *connection_socket)
@@ -127,23 +115,32 @@ int launch_udp_server(in_addr_t ip)
         exit(errno);
     }
 
-	char buffer[1000] = {0};
-	ssize_t recv_bytes = udt_recv(socket_fd, buffer, 244);
-    if (recv_bytes != -1 && recv_bytes != 0)
-	{
-        printf("\tMessage: %s\n\n", buffer);
-        memset(buffer, 0, sizeof(buffer));
-    }
+	// char buffer[1000] = {0};
+	// ssize_t recv_bytes = udt_recv(socket_fd, buffer, 244);
+    // if (recv_bytes != -1 && recv_bytes != 0)
+	// {
+    //     printf("\tMessage: %s\n\n", buffer);
+    //     memset(buffer, 0, sizeof(buffer));
+    // }
 
 	//sleep(5);
 
-	char new_buffer[1000] = {0};
-	strcpy(new_buffer, "888LLLLLLLLLJJJDJJ jhdjvbshdbvhjsbdvhjbdscjebdvhjksjdbvhjce,whsdbvbhj,mehwbshj vm"
-				   "efwsdfsdfdsfsdfdfgnj.k/.k,jm5555555555555999999999999999999995555555555555555555555555555555555555");
+	// char new_buffer[1000] = {0};
+	// strcpy(new_buffer, "888LLLLLLLLLJJJDJJ jhdjvbshdbvhjsbdvhjbdscjebdvhjksjdbvhjce,whsdbvbhj,mehwbshj vm"
+	// 			   "efwsdfsdfdsfsdfdfgnj.k/.k,jm5555555555555999999999999999999995555555555555555555555555555555555555");
 
-	udt_send(socket_fd, new_buffer, 180);
+	// udt_send(socket_fd, new_buffer, 180);
 
-	printf("In while()\n");
+	int file_fd = open("test_recv_file", O_WRONLY | O_TRUNC | O_CREAT, 0666);
+	if (file_fd == -1)
+		return -1;
+
+	off_t offset = 0;
+
+	if (udt_recvfile(socket_fd, file_fd, &offset, 100) < 0)
+		return -1;
+
+    close(file_fd);
 
 	while(1);
 

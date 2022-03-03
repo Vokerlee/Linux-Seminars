@@ -24,11 +24,6 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 
-#define HDR_MSG_LEN 100
-#define PACKET_DATA_SIZE 120
-
-#define N_MAX_FILENAME_LEN 1024
-
 int ipv4_socket(int type, int optname);
 
 
