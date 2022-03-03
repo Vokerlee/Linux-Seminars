@@ -128,11 +128,22 @@ int launch_udp_server(in_addr_t ip)
     }
 
 	char buffer[1000] = {0};
-    if (udt_recv(socket_fd, buffer, 157))
+	ssize_t recv_bytes = udt_recv(socket_fd, buffer, 244);
+    if (recv_bytes != -1 && recv_bytes != 0)
 	{
         printf("\tMessage: %s\n\n", buffer);
         memset(buffer, 0, sizeof(buffer));
     }
+
+	//sleep(5);
+
+	char new_buffer[1000] = {0};
+	strcpy(new_buffer, "888LLLLLLLLLJJJDJJ jhdjvbshdbvhjsbdvhjbdscjebdvhjksjdbvhjce,whsdbvbhj,mehwbshj vm"
+				   "efwsdfsdfdsfsdfdfgnj.k/.k,jm5555555555555999999999999999999995555555555555555555555555555555555555");
+
+	udt_send(socket_fd, new_buffer, 180);
+
+	printf("In while()\n");
 
 	while(1);
 

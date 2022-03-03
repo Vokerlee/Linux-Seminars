@@ -44,18 +44,17 @@ do                                                          \
                                                             \
     if (buffer.size == 0)                                   \
         pthread_cond_wait(&(buffer.cond), &(buffer.mutex)); \
+    if (buffer.size == 0)                                   \
+        block = NULL;                                       \
+    else                                                    \
+    {                                                       \
+        block = buffer.first;                               \
+        buffer.first = block->next;                         \
+        buffer.size--;                                      \
+    }                                                       \
                                                             \
-    block = buffer.first;                                   \
-    buffer.first = block->next;                             \
-    buffer.size--;                                          \
     pthread_mutex_unlock(&(buffer.mutex));                  \
                                                             \
 } while (0)
-
-// typedef pthread_t tid_t;
-// typedef void * (*thread_worker_t) (void *);
-
-// tid_t thread_start (thread_worker_t, void *); 
-// void  thread_stop  (tid_t);
 
 #endif // !UDT_UTILS_H_

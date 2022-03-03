@@ -9,13 +9,21 @@ typedef struct
 
     struct
     {
+        struct sockaddr_in last_addr;
         struct sockaddr_in addr;
         socklen_t addrlen;
     };
 
     int is_connected;
     int is_client;
+    int is_in_wait;
     int type;
+
+    struct
+    {   
+        pthread_t recv_thread;
+        pthread_t send_thread;
+    };
 } udt_conn_t;
 
 extern udt_conn_t connection;

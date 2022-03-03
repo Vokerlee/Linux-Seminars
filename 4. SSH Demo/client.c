@@ -63,17 +63,27 @@ int launch_udp_client(in_addr_t dest_ip, int file_fd, const char *file_name)
 
 	if (udt_connect(socket_fd, (struct sockaddr *) &server_addr, length) == -1)
 	{
-        fprintf(stderr, "Could not connect to socket\n");
+        fprintf(stderr, "Could not connect to server\n");
         exit(errno);
     }
 	else
         fprintf(stderr, "Connected\n");
 
 	char buffer[1000] = {0};
-	strcpy(buffer, "LLLLLLLLLJJJDJJ jhdjvbshdbvhjsbdvhjbdscjebdvhjksjdbvhjce,whsdbvbhj,mehwbshj vm"
-				   "efwsdfsdfdsfsdfdfgnj.k/.k,jm55555555555555555555555555555555555555555555555555");	
+	strcpy(buffer, "LLLLLLLLLJJJDJJ jhdjvfffffffffffffffffffffffffbshdbvhjsbdvhjbdscjebdvhjksjdbvhjce,whsdbvbhj,mehwbshj vm"
+				   "efwsdfsdfdsfsdfdfgnj.k/.ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffk,jm55555555555555555555555555555555555555555555555555");
 
-    udt_send(socket_fd, buffer, 157);
+    udt_send(socket_fd, buffer, 244);
+
+	printf("After send\n");
+
+	char new_buffer[1000] = {0};
+	ssize_t recv_bytes = udt_recv(socket_fd, new_buffer, 180);
+    if (recv_bytes != -1 && recv_bytes != 0)
+	{
+        printf("\tMessage: %s\n\n", new_buffer);
+        memset(new_buffer, 0, sizeof(new_buffer));
+    }
 
 	udt_close(socket_fd);
 }

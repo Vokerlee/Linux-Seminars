@@ -10,6 +10,9 @@
 
 extern udt_conn_t connection;
 
+extern pthread_mutex_t handshake_mutex;
+extern pthread_cond_t  handshake_cond;
+
 void udt_packet_deserialize(udt_packet_t *packet)
 {
     if (packet == NULL)
@@ -97,24 +100,24 @@ void udt_packet_parse(udt_packet_t packet)
     {
         switch (packet_get_type(packet))
         {
-            case PACKET_TYPE_HANDSHAKE:             // handshake 
+            case PACKET_TYPE_HANDSHAKE:             // handshake
                 console_log("packet: handshake");
 
                 if (connection.is_client == 1)
                 {
+                    pthread_cond_signal(&handshake_cond);
                     udt_handshake_terminate();
-                    break;
                 }
-
-                udt_packet_new_handshake(&packet);
-                udt_send_packet_buffer_write(&packet);
-                udt_handshake_terminate();
-
-                if (connection.is_client == 0)
+                else if (connection.is_connected == 0)
                 {
-                    struct timeval tv = {.tv_sec = 1, .tv_usec = 0};
+                    udt_packet_new_handshake(&packet);
+                    udt_send_packet_buffer_write(&packet);
+                    udt_handshake_terminate();
+
+                    struct timeval tv = {.tv_sec = 2, .tv_usec = 0};
                     setsockopt(connection.socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
                 }
+
                 break;
 
             case PACKET_TYPE_KEEPALIVE:             // keep-alive
@@ -123,6 +126,8 @@ void udt_packet_parse(udt_packet_t packet)
 
             case PACKET_TYPE_ACK:                   // ack
                 console_log("packet: ack");
+                connection.is_in_wait = 0;
+
                 break;
 
             case PACKET_TYPE_NAK:                   // nak
@@ -135,6 +140,13 @@ void udt_packet_parse(udt_packet_t packet)
 
             case PACKET_TYPE_SHUTDOWN:              // shutdown
                 console_log("packet: shutdown");
+
+                if (connection.is_connected == 0)
+                {
+                    printf("Packet from alien!\n");
+                    break;
+                }
+
                 connection.is_connected = 0;
                 if (connection.is_client == 0) // server
                 {
@@ -179,6 +191,21 @@ void udt_packet_parse(udt_packet_t packet)
 
             else                                        // middle packet
                 udt_recv_buffer_write(packet.data, -1);
+
+            udt_packet_t packet_ack;
+
+            packet_clear_header (packet_ack);
+            packet_set_ctrl     (packet_ack);
+            packet_set_type     (packet_ack, PACKET_TYPE_ACK);
+            packet_set_timestamp(packet_ack, 0x0000051c);
+            packet_set_id       (packet_ack, 0x08c42c74);
+
+            udt_packet_new(&packet_ack, NULL, 0);
+            udt_send_packet_buffer_write(&packet_ack);
+        }
+        else
+        {
+            printf("Packet from alien!\n");
         }
     }
 

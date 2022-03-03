@@ -4,10 +4,13 @@
 #include <stdio.h>
 
 #include "udt_packet.h"
+#include "udt_core.h"
 #include "udt_buffer.h"
 
-static udt_buffer_t RECV_BUFFER;
-static udt_buffer_t SEND_BUFFER;
+udt_buffer_t RECV_BUFFER;
+udt_buffer_t SEND_BUFFER;
+
+extern udt_conn_t connection;
 
 int udt_recv_buffer_init()
 {
@@ -55,8 +58,24 @@ ssize_t udt_send_buffer_write(char *data, ssize_t len)
         packet_set_timestamp(packet, 0x0000051c);
         packet_set_id       (packet, 0x08c42c74);
 
+        connection.is_in_wait = 1;
+
         udt_packet_new(&packet, buffer, size);
         udt_send_packet_buffer_write(&packet);
+
+        while (connection.is_in_wait == 1); 
+
+        // Add code:
+        // In core.c in case of long wait do 
+        // if (connection.is_in_wait == 1) {it is a sender, which waits for ack}
+        // 1) connection.is_connected = 0
+        // 2) connection.is_in_wait = 0
+        // 3) Additionally: in case of disconnect client should completely close and clean everything as if it is udt_close()
+
+        // TEST ALL ABOVE!!!!
+
+        if (connection.is_connected == 0)
+            return retval - buf_len - PACKET_DATA_SIZE;
 
         buffer += size;
         boundary = PACKET_BOUNDARY_NONE;
@@ -64,7 +83,7 @@ ssize_t udt_send_buffer_write(char *data, ssize_t len)
 
     packet_clear_header (packet);
     packet_set_ctrl     (packet);
-    packet_set_type     (packet, PACKET_TYPE_ACK);
+    packet_set_type     (packet, PACKET_TYPE_ACK2);
     packet_set_timestamp(packet, 0x0000051c);
     packet_set_id       (packet, 0x08c42c74);
 
@@ -97,7 +116,7 @@ ssize_t udt_recv_file_buffer_read(int fd, off_t *offset, ssize_t size)
     {
         int n_read_bytes = udt_buffer_read(&RECV_BUFFER, data, PACKET_DATA_SIZE);
         if (n_read_bytes == 0)
-            continue;  // keep polling until there is data
+            break; // the situation when connection has lost and there is nothing to read
 
         ssize_t bytes_to_write = (buf_size > PACKET_DATA_SIZE) ? PACKET_DATA_SIZE : buf_size;
         ssize_t n_written_bytes = pwrite(fd, &data, bytes_to_write, *offset);

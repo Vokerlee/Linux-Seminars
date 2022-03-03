@@ -28,6 +28,6 @@
 #define UDT_VERSION_MINOR 1
 #define UDT_VERSION 4
 
-#define N_MAX_FILENAME_LEN 1024
+#define UDT_N_MAX_ATTEMPTS_CONN 10
 
 #endif // !NET_CONFIG_H_

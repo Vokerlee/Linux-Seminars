@@ -60,6 +60,9 @@ ssize_t udt_buffer_read(udt_buffer_t *buffer, char *data, ssize_t len)
     while (last == 0)
     {
         linked_list_get((*buffer), block);
+
+        if (block == NULL)  
+            return n_read_bytes;
             
         last = block->last;
         if (cur_pos >= len)

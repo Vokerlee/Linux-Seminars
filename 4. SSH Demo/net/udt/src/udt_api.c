@@ -20,6 +20,8 @@ int udt_bind(int socket_fd, const struct sockaddr *addr, socklen_t len)
     if (bind_error == -1)
         return -1;
 
+    memset(&connection, 0, sizeof(connection));
+
     connection.socket_fd    = socket_fd;
     connection.addrlen      = len;
     connection.is_connected = 0;
@@ -36,6 +38,9 @@ int udt_bind(int socket_fd, const struct sockaddr *addr, socklen_t len)
     if (send_pthread_error == -1)
         return -1;
 
+    connection.recv_thread = recv_thread;
+    connection.send_thread = send_thread;
+
     return 0;
 }
 
@@ -44,6 +49,8 @@ int udt_connect(int socket_fd, const struct sockaddr *addr, socklen_t len)
     int connect_error = connect(socket_fd, (struct sockaddr *) addr, len);
     if (connect_error == -1)
         return -1;
+
+    memset(&connection, 0, sizeof(connection));
 
     connection.socket_fd    = socket_fd;
     connection.addr         = *((struct sockaddr_in *) addr);
@@ -62,30 +69,88 @@ int udt_connect(int socket_fd, const struct sockaddr *addr, socklen_t len)
     if (send_pthread_error == -1)
         return -1;
 
+    struct timeval tv = {.tv_sec = 1, .tv_usec = 0};
+    setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
+
     udt_handshake_init();
 
-    while (!connection.is_connected);
-    
-    return 0;
+    if (connection.is_connected == 1)
+    {
+        struct timeval new_tv = {.tv_sec = 2, .tv_usec = 0};
+        setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &new_tv, sizeof(struct timeval));
+
+        connection.recv_thread = recv_thread;
+        connection.send_thread = send_thread;
+
+        return 0;
+    }
+    else
+    {
+        memset(&connection, 0, sizeof(connection));
+
+        struct timeval new_tv = {.tv_sec = 0, .tv_usec = 0};
+        setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &new_tv, sizeof(struct timeval));
+
+        pthread_cancel(recv_thread);
+        pthread_cancel(send_thread);
+
+        return -1;
+    }
 }
 
 ssize_t udt_recv(int socket_fd, char *buffer, int len)
 {
-    return udt_recv_buffer_read(buffer, len);
+    if (connection.is_connected == 0 && connection.is_client == 1)
+        return -1;
+
+    ssize_t received_bytes = udt_recv_buffer_read(buffer, len);
+    if (connection.is_connected == 0 && connection.is_client == 1)
+    {
+        pthread_cancel(connection.recv_thread);
+        pthread_cancel(connection.send_thread);
+
+        memset(&connection, 0, sizeof(connection));
+
+        return -1;
+    }
+
+    return received_bytes;
 }
 
 ssize_t udt_send(int socket_fd, char *buffer, int len)
 {
     if (connection.is_connected == 0)
         return -1;
-    
-    return udt_send_buffer_write(buffer, len);
+
+    ssize_t sent_bytes = udt_send_buffer_write(buffer, len);
+    if (connection.is_connected == 0 && connection.is_client == 1)
+    {
+        pthread_cancel(connection.recv_thread);
+        pthread_cancel(connection.send_thread);
+
+        memset(&connection, 0, sizeof(connection));
+
+        return -1;
+    }
+        
+    return sent_bytes;
 }
 
 int udt_close(int socket_fd)
 {
-    udt_connection_close();
-    while (connection.is_connected == 1);
+    if (connection.is_connected == 1)
+    {   
+        udt_connection_close();
+        while (connection.is_connected == 1);
+    }
+
+    if (connection.socket_fd != 0) // is not cleaned yet
+    {
+        pthread_cancel(connection.recv_thread);
+        pthread_cancel(connection.send_thread);
+    }
+
+    memset(&connection, 0, sizeof(connection));
 
     return close(socket_fd);
 }
