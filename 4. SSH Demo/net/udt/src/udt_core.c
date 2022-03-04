@@ -82,15 +82,17 @@ void *udt_receiver_start(void *arg)
 
     while (1)
     {
-        //printf("Cycle = %d, conn is %d\n", conn->socket_fd, conn->is_connected);
         int recv_error = recvfrom(conn->socket_fd, &packet, sizeof(udt_packet_t), 0,
                                   (struct sockaddr *) &(conn->last_addr), &(conn->addrlen));
 
-        //printf("Cycle2 = %d\n", conn->socket_fd);
-
         if (recv_error == -1 && errno == EAGAIN)
         {
-            if (conn->is_connected == 1) // already connected
+            if (conn->is_in_wait == 1) // send packet
+            {
+                conn->no_ack = 1;
+                conn->is_in_wait = 0;
+            }
+            else if (conn->is_connected == 1) // already connected
             {
                 conn->is_connected = 0;
                 conn->is_in_wait   = 0;

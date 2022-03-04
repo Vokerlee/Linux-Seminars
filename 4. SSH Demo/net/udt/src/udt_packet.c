@@ -184,13 +184,41 @@ void udt_packet_parse(udt_packet_t packet)
                 udt_recv_buffer_write(packet.data, PACKET_DATA_SIZE);
 
             else if (packet.header._head1 & 0x40000000) // last packet
-                udt_recv_buffer_write(packet.data, PACKET_DATA_SIZE);
+            {
+                printf("Last packet!\n");
+                setsockopt(connection.socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &(connection.saved_tv), sizeof(struct timeval));
 
+                if (packet_get_seqnum(packet) == (connection.last_packet_number + 1))
+                {
+                    udt_recv_buffer_write(packet.data, PACKET_DATA_SIZE);
+                    connection.last_packet_number = 0;
+                }
+                else
+                    return;
+            }
+                
             else if (packet.header._head1 & 0x80000000) // first packet
-                udt_recv_buffer_write(packet.data, -1);
+            {
+                socklen_t optlen;
+                getsockopt(connection.socket_fd, SOL_SOCKET, SO_RCVTIMEO, &(connection.saved_tv), &optlen);
 
-            else                                        // middle packet
+                struct timeval new_tv = {.tv_sec = UDT_SECONDS_TIMEOUT_READ, .tv_usec = UDT_USECONDS_TIMEOUT_READ};
+                setsockopt(connection.socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &new_tv, sizeof(struct timeval));
+
                 udt_recv_buffer_write(packet.data, -1);
+                connection.last_packet_number = 1;
+            }
+                
+            else // middle packet
+            {
+                if (packet_get_seqnum(packet) == (connection.last_packet_number + 1))
+                {
+                    udt_recv_buffer_write(packet.data, -1);
+                    connection.last_packet_number++;
+                }
+                else
+                    return;
+            } 
 
             udt_packet_t packet_ack;
 
@@ -204,9 +232,7 @@ void udt_packet_parse(udt_packet_t packet)
             udt_send_packet_buffer_write(&packet_ack);
         }
         else
-        {
             printf("Packet from alien!\n");
-        }
     }
 
     return;

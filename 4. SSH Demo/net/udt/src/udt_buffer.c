@@ -43,7 +43,7 @@ ssize_t udt_buffer_write(udt_buffer_t *buffer, char *data, ssize_t len)
         new_block->last = 1;
 
     linked_list_add((*buffer), new_block);
-
+    
     return new_block->len;
 }
 
@@ -61,17 +61,18 @@ ssize_t udt_buffer_read(udt_buffer_t *buffer, char *data, ssize_t len)
     {
         linked_list_get((*buffer), block);
 
-        if (block == NULL)  
+        if (block == NULL)
             return n_read_bytes;
-            
+
         last = block->last;
-        if (cur_pos >= len)
-            break;
 
         ssize_t n = ((len - cur_pos) < block->len) ? len - cur_pos : block->len;
         strncpy(data + cur_pos, block->data, n);
         n_read_bytes += n;
         cur_pos      += n;
+
+        if (cur_pos >= len)
+            break;
 
         free(block->data);
         free(block);

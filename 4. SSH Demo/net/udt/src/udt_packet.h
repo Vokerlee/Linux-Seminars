@@ -47,6 +47,9 @@
     ((packet).header._head0 &= 0x80000000);       \
     ((packet).header._head0 |= (seqnum))
 
+#define packet_get_seqnum(packet)                 \
+    ((packet).header._head0)
+
 #define packet_set_boundary(packet, boundary)     \
     ((packet).header._head1 &= 0xC0000000);       \
     ((packet).header._head1 |= (boundary << 30))

@@ -7,8 +7,8 @@
 #include "udt_core.h"
 #include "udt_buffer.h"
 
-udt_buffer_t RECV_BUFFER;
-udt_buffer_t SEND_BUFFER;
+udt_buffer_t RECV_BUFFER = {0};
+udt_buffer_t SEND_BUFFER = {0};
 
 extern udt_conn_t connection;
 
@@ -36,12 +36,13 @@ ssize_t udt_send_buffer_write(char *data, ssize_t len)
 {
     udt_packet_t packet;
 
-    ssize_t size   = len;
+    ssize_t size   = 0;
     long buf_len   = len;
     ssize_t retval = len;
-    int seqnum     = 2142894844;
+    int seqnum     = 1;
     char *buffer   = data;
     int boundary   = PACKET_BOUNDARY_START;
+    int n_attempts = 0;
 
     while (buf_len > 0)
     {
@@ -58,18 +59,29 @@ ssize_t udt_send_buffer_write(char *data, ssize_t len)
         packet_set_timestamp(packet, 0x0000051c);
         packet_set_id       (packet, 0x08c42c74);
 
-        connection.is_in_wait = 1;
+        while (n_attempts < UDT_N_MAX_ATTEMPTS_SEND)
+        {
+            connection.is_in_wait = 1;
+            udt_packet_new(&packet, buffer, size);
+            udt_send_packet_buffer_write(&packet);
 
-        udt_packet_new(&packet, buffer, size);
-        udt_send_packet_buffer_write(&packet);
+            while (connection.is_in_wait == 1); // wait for ACK signal
 
-        while (connection.is_in_wait == 1); // wait for ACK signal
+            if (connection.no_ack == 1)
+            {
+                connection.no_ack = 0;
+                n_attempts++;
+            }
+            else
+                break;
+        }
 
-        if (connection.is_connected == 0)
+        if (n_attempts == UDT_N_MAX_ATTEMPTS_SEND)
             return retval - buf_len - PACKET_DATA_SIZE;
 
-        buffer += size;
         boundary = PACKET_BOUNDARY_NONE;
+        buffer += size;
+        n_attempts = 0;
     }
 
     packet_clear_header (packet);
@@ -96,7 +108,7 @@ int udt_send_packet_buffer_read(udt_packet_t *packet)
 
 ssize_t udt_recv_file_buffer_read(int fd, off_t *offset, ssize_t size)
 {
-    char data[PACKET_DATA_SIZE];
+    char data[PACKET_DATA_SIZE + 1] = {0};
     ssize_t retval = 0;
     long buf_size = size;
 
@@ -112,8 +124,11 @@ ssize_t udt_recv_file_buffer_read(int fd, off_t *offset, ssize_t size)
         ssize_t bytes_to_write = (buf_size > PACKET_DATA_SIZE) ? PACKET_DATA_SIZE : buf_size;
         ssize_t n_written_bytes = pwrite(fd, &data, bytes_to_write, *offset);
         if (n_written_bytes < 1)
-            return n_written_bytes;
-
+        {
+            buf_size -= n_written_bytes;
+            continue;
+        }
+            
         *offset  += n_written_bytes;
         retval   += n_written_bytes;
         buf_size -= n_written_bytes;
@@ -127,9 +142,10 @@ ssize_t udt_send_file_buffer_write(int fd, off_t offset, ssize_t size)
     udt_packet_t packet;
 
     ssize_t retval = 0;
-    int seqnum = 2142894844;
-    char buffer[PACKET_DATA_SIZE];
+    int seqnum = 1;
+    char buffer[PACKET_DATA_SIZE + 1] = {0};
     int boundary = PACKET_BOUNDARY_START;
+    int n_attempts = 0;
 
     long buf_size = size;
 
@@ -161,18 +177,33 @@ ssize_t udt_send_file_buffer_write(int fd, off_t offset, ssize_t size)
         packet_set_timestamp(packet, 0x0000051c);
         packet_set_id       (packet, 0x08c42c74);
 
-        connection.is_in_wait = 1;
+        while (n_attempts < UDT_N_MAX_ATTEMPTS_SEND)
+        {
+            connection.is_in_wait = 1;
+            printf("Attempt #%d, seqnum = %d\n", n_attempts + 1, seqnum - 1);
+            printf("MSG: %s||", buffer);
 
-        udt_packet_new(&packet, buffer, len);
-        udt_send_packet_buffer_write(&packet);
+            udt_packet_new(&packet, buffer, len);
+            udt_send_packet_buffer_write(&packet);
 
-        while (connection.is_in_wait == 1); // wait for ACK signal
+            while (connection.is_in_wait == 1); // wait for ACK signal
 
-        if (connection.is_connected == 0)
+            if (connection.no_ack == 1)
+            {
+                connection.no_ack = 0;
+                n_attempts++;
+            }
+            else
+                break;
+        }
+
+        if (n_attempts == UDT_N_MAX_ATTEMPTS_SEND)
             return retval - len;
 
         boundary = PACKET_BOUNDARY_NONE;
         offset += len;
+
+        n_attempts = 0;
     }
 
     packet_clear_header (packet);

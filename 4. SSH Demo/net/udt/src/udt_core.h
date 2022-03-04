@@ -17,21 +17,29 @@ typedef struct
     int is_connected;
     int is_client;
     int is_in_wait;
+
+    int no_ack;
+
     int type;
+
+    int last_packet_number;
 
     struct
     {   
         pthread_t recv_thread;
         pthread_t send_thread;
     };
+
+    struct timeval saved_tv;
+
+    int help_flag;
 } udt_conn_t;
 
 extern udt_conn_t connection;
 
-void udt_handshake_init      ();
-void udt_handshake_terminate ();
-
-void udt_connection_close    ();
+void udt_handshake_init     ();
+void udt_handshake_terminate();
+void udt_connection_close   ();
 
 void *udt_sender_start  (void *arg);
 void *udt_receiver_start(void *arg);
