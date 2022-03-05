@@ -3,8 +3,7 @@
 
 #include "net_config.h"
 
-#define PACKET_HEADER_SIZE 4
-// #define PACKET_DATA_SIZE   4096
+#define PACKET_HEADER_SIZE 6
 
 #define PACKET_MASK_CTRL 0x80000000
 #define PACKET_MASK_SEQ  0x7FFFFFFF
@@ -35,7 +34,8 @@
     ((packet).header._head0 &= 0x00000000);       \
     ((packet).header._head1 &= 0x00000000);       \
     ((packet).header._head2 &= 0x00000000);       \
-    ((packet).header._head3 &= 0x00000000)
+    ((packet).header._head3 &= 0x00000000);       \
+    ((packet).header._head4 &= 0x00000000);
 
 #define packet_set_data(packet)                   \
     ((packet).header._head0 &= 0x7FFFFFFF)
@@ -47,9 +47,6 @@
     ((packet).header._head0 &= 0x80000000);       \
     ((packet).header._head0 |= (seqnum))
 
-#define packet_get_seqnum(packet)                 \
-    ((packet).header._head0)
-
 #define packet_set_boundary(packet, boundary)     \
     ((packet).header._head1 &= 0xC0000000);       \
     ((packet).header._head1 |= (boundary << 30))
@@ -58,8 +55,10 @@
     ((packet).header._head1 |= (order) ? 0x20000000 : 0x00000000)
 
 #define packet_set_msgnum(packet, msgnum)         \
-    ((packet).header._head1 &= 0xF0000000);       \
-    ((packet).header._head1 |= (msgnum))
+    ((packet).header._head4 = (msgnum))
+
+#define packet_get_msgnum(packet)                 \
+    ((packet).header._head4)
 
 #define packet_set_timestamp(packet, timestamp_)  \
     ((packet).header._head2 |= timestamp_)
@@ -104,7 +103,6 @@ typedef struct
 
     union
     {
-        uint32_t message_number;
         uint32_t ack_sequence_number;
         uint32_t _head1;
     };
@@ -121,6 +119,12 @@ typedef struct
         uint32_t _head3;
     };
 
+    union 
+    {
+        size_t message_number;
+        uint64_t _head4;
+    };
+
 } udt_packet_header_t;
 
 typedef struct
@@ -129,11 +133,11 @@ typedef struct
     char                data[PACKET_DATA_SIZE];
 } udt_packet_t;
 
-void udt_packet_deserialize   (udt_packet_t *packet);
-void udt_packet_serialize     (udt_packet_t *packet);
+void udt_packet_deserialize(udt_packet_t *packet);
+void udt_packet_serialize  (udt_packet_t *packet);
 
-int  udt_packet_new           (udt_packet_t *packet, char *buffer, int len);
-int  udt_packet_new_handshake (udt_packet_t *packet);
-void udt_packet_parse         (udt_packet_t  packet);
+ssize_t udt_packet_new          (udt_packet_t *packet, const void *buffer, size_t len);
+ssize_t udt_packet_new_handshake(udt_packet_t *packet);
+void    udt_packet_parse        (udt_packet_t  packet);
 
 #endif // !UDT_PACKET_H_

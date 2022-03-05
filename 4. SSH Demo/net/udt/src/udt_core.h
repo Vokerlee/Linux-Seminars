@@ -6,6 +6,7 @@
 typedef struct
 {
     int socket_fd;
+    int type;
 
     struct
     {
@@ -19,10 +20,7 @@ typedef struct
     int is_in_wait;
 
     int no_ack;
-
-    int type;
-
-    int last_packet_number;
+    size_t last_packet_number;
 
     struct
     {   
@@ -31,8 +29,6 @@ typedef struct
     };
 
     struct timeval saved_tv;
-
-    int help_flag;
 } udt_conn_t;
 
 extern udt_conn_t connection;

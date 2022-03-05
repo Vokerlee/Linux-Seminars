@@ -115,32 +115,32 @@ int launch_udp_server(in_addr_t ip)
         exit(errno);
     }
 
-	char buffer[1000] = {0};
-	ssize_t recv_bytes = udt_recv(socket_fd, buffer, 190);
-    if (recv_bytes != -1 && recv_bytes != 0)
-	{
-        printf("\tMessage: %s\n\n", buffer);
-        memset(buffer, 0, sizeof(buffer));
-    }
+	// char buffer[1000] = {0};
+	// ssize_t recv_bytes = udt_recv(socket_fd, buffer, 190);
+    // if (recv_bytes != -1 && recv_bytes != 0)
+	// {
+    //     printf("\tMessage: %s\n\n", buffer);
+    //     memset(buffer, 0, sizeof(buffer));
+    // }
 
-	//sleep(5);
+	// //sleep(5);
 
-	char new_buffer[1000] = {0};
-	strcpy(new_buffer, "888LLLLLLLLLJJJDJJ jhdjvbshdbvhjsbdvhjbdscjebdvhjksjdbvhjce,whsdbvbhj,mehwbshj vm"
-				   "efwsdfsdfdsfsdfdfgnj.k/.k,jm5555555555555999999999999999999995555555555555555555555555555555555555");
+	// char new_buffer[1000] = {0};
+	// strcpy(new_buffer, "888LLLLLLLLLJJJDJJ jhdjvbshdbvhjsbdvhjbdscjebdvhjksjdbvhjce,whsdbvbhj,mehwbshj vm"
+	// 			   "efwsdfsdfdsfsdfdfgnj.k/.k,jm5555555555555999999999999999999995555555555555555555555555555555555555");
 
-	udt_send(socket_fd, new_buffer, 180);
+	// udt_send(socket_fd, new_buffer, 180);
 
-	// int file_fd = open("test_recv_file", O_WRONLY | O_TRUNC | O_CREAT, 0666);
-	// if (file_fd == -1)
-	// 	return -1;
+	int file_fd = open("test_recv_file", O_WRONLY | O_TRUNC | O_CREAT, 0666);
+	if (file_fd == -1)
+		return -1;
 
-	// off_t offset = 0;
+	off_t offset = 0;
 
-	// if (udt_recvfile(socket_fd, file_fd, &offset, 305) < 0)
-	// 	return -1;
+	if (udt_recvfile(socket_fd, file_fd, &offset, 305) < 0)
+		return -1;
 
-    // close(file_fd);
+    close(file_fd);
 
 	while(1);
 

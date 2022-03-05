@@ -7,8 +7,8 @@
 #include "udt_core.h"
 #include "udt_buffer.h"
 
-udt_buffer_t RECV_BUFFER = {0};
-udt_buffer_t SEND_BUFFER = {0};
+udt_buffer_t RECV_BUFFER = {};
+udt_buffer_t SEND_BUFFER = {};
 
 extern udt_conn_t connection;
 
@@ -34,35 +34,43 @@ ssize_t udt_recv_buffer_read(char *data, ssize_t len)
 
 ssize_t udt_send_buffer_write(char *data, ssize_t len)
 {
+    if (data == NULL)
+        return -1;
+
     udt_packet_t packet;
 
-    ssize_t size   = 0;
-    long buf_len   = len;
-    ssize_t retval = len;
-    int seqnum     = 1;
-    char *buffer   = data;
-    int boundary   = PACKET_BOUNDARY_START;
-    int n_attempts = 0;
+    size_t msgnum  = 1;
+    int    seqnum  = 1; 
+    size_t n_attempts = 0; 
 
-    while (buf_len > 0)
+    ssize_t n_sent_bytes = 0;
+    int boundary = PACKET_BOUNDARY_START; 
+
+    long n_bytes_to_send = len;
+    char *buffer = data;
+
+    while (n_bytes_to_send > 0)
     {
-        size = (buf_len > PACKET_DATA_SIZE) ? PACKET_DATA_SIZE : buf_len;
-        buf_len -= PACKET_DATA_SIZE;
-        boundary |= (buf_len > 0) ? PACKET_BOUNDARY_NONE : PACKET_BOUNDARY_END;
+        ssize_t n_packet_bytes = (n_bytes_to_send > PACKET_DATA_SIZE) ? PACKET_DATA_SIZE : n_bytes_to_send;
+        n_bytes_to_send -= PACKET_DATA_SIZE;
+        boundary |= (n_bytes_to_send > 0) ? PACKET_BOUNDARY_NONE : PACKET_BOUNDARY_END;
+
+        connection.last_packet_number = msgnum;
 
         packet_clear_header (packet);
         packet_set_data     (packet);
         packet_set_seqnum   (packet, seqnum++);
+        packet_set_msgnum   (packet, msgnum++);
         packet_set_boundary (packet, boundary);
         packet_set_order    (packet, 1);
-        packet_set_msgnum   (packet, 1);
         packet_set_timestamp(packet, 0x0000051c);
         packet_set_id       (packet, 0x08c42c74);
 
         while (n_attempts < UDT_N_MAX_ATTEMPTS_SEND)
         {
             connection.is_in_wait = 1;
-            udt_packet_new(&packet, buffer, size);
+            
+            udt_packet_new(&packet, buffer, n_packet_bytes);
             udt_send_packet_buffer_write(&packet);
 
             while (connection.is_in_wait == 1); // wait for ACK signal
@@ -77,10 +85,13 @@ ssize_t udt_send_buffer_write(char *data, ssize_t len)
         }
 
         if (n_attempts == UDT_N_MAX_ATTEMPTS_SEND)
-            return retval - buf_len - PACKET_DATA_SIZE;
+            return n_sent_bytes;
+
+        n_sent_bytes += n_packet_bytes;
 
         boundary = PACKET_BOUNDARY_NONE;
-        buffer += size;
+        buffer += n_packet_bytes;
+
         n_attempts = 0;
     }
 
@@ -93,7 +104,7 @@ ssize_t udt_send_buffer_write(char *data, ssize_t len)
     udt_packet_new(&packet, NULL, 0);
     udt_send_packet_buffer_write(&packet);
 
-    return retval;
+    return n_sent_bytes;
 }
 
 int udt_send_packet_buffer_write(udt_packet_t *packet)
@@ -108,7 +119,7 @@ int udt_send_packet_buffer_read(udt_packet_t *packet)
 
 ssize_t udt_recv_file_buffer_read(int fd, off_t *offset, ssize_t size)
 {
-    char data[PACKET_DATA_SIZE + 1] = {0};
+    char data[PACKET_DATA_SIZE + 1];
     ssize_t retval = 0;
     long buf_size = size;
 
@@ -139,51 +150,51 @@ ssize_t udt_recv_file_buffer_read(int fd, off_t *offset, ssize_t size)
 
 ssize_t udt_send_file_buffer_write(int fd, off_t offset, ssize_t size)
 {
-    udt_packet_t packet;
-
-    ssize_t retval = 0;
-    int seqnum = 1;
-    char buffer[PACKET_DATA_SIZE + 1] = {0};
-    int boundary = PACKET_BOUNDARY_START;
-    int n_attempts = 0;
-
-    long buf_size = size;
-
     if (fd < 0)
         return -1;
 
-    while (buf_size > 0)
+    udt_packet_t packet;
+    char buffer[PACKET_DATA_SIZE + 1] = {0};
+
+    size_t msgnum = 1;
+    int    seqnum = 1;
+    size_t n_attempts = 0;
+
+    ssize_t n_sent_bytes = 0;
+    int boundary = PACKET_BOUNDARY_START;
+
+    long n_bytes_to_send = size;
+    while (n_bytes_to_send > 0)
     {
-        ssize_t bytes_to_read = (buf_size > PACKET_DATA_SIZE) ? PACKET_DATA_SIZE : buf_size;
-        ssize_t len = pread(fd, buffer, bytes_to_read, offset);
-        if (len < 0)
+        ssize_t n_bytes_to_read = (n_bytes_to_send > PACKET_DATA_SIZE) ? PACKET_DATA_SIZE : n_bytes_to_send;
+        ssize_t n_packet_bytes = pread(fd, buffer, n_bytes_to_read, offset);
+        if (n_packet_bytes < 0)
             break;
 
-        retval   += len;
-        buf_size -= len;
+        n_bytes_to_send -= n_packet_bytes;
 
         // If bytes read is less than the desired, then its EOF
-        if (len < bytes_to_read)
-            buf_size = 0;
+        if (n_packet_bytes < n_bytes_to_read)
+            n_bytes_to_send = 0;
 
-        boundary |= (buf_size > 0) ? PACKET_BOUNDARY_NONE : PACKET_BOUNDARY_END;
+        connection.last_packet_number = msgnum;
+
+        boundary |= (n_bytes_to_send > 0) ? PACKET_BOUNDARY_NONE : PACKET_BOUNDARY_END;
 
         packet_clear_header (packet);
         packet_set_data     (packet);
         packet_set_seqnum   (packet, seqnum++);
+        packet_set_msgnum   (packet, msgnum++);
         packet_set_boundary (packet, boundary);
         packet_set_order    (packet, 1);
-        packet_set_msgnum   (packet, 1);
         packet_set_timestamp(packet, 0x0000051c);
         packet_set_id       (packet, 0x08c42c74);
 
         while (n_attempts < UDT_N_MAX_ATTEMPTS_SEND)
         {
             connection.is_in_wait = 1;
-            printf("Attempt #%d, seqnum = %d\n", n_attempts + 1, seqnum - 1);
-            printf("MSG: %s||", buffer);
 
-            udt_packet_new(&packet, buffer, len);
+            udt_packet_new(&packet, buffer, n_packet_bytes);
             udt_send_packet_buffer_write(&packet);
 
             while (connection.is_in_wait == 1); // wait for ACK signal
@@ -198,10 +209,12 @@ ssize_t udt_send_file_buffer_write(int fd, off_t offset, ssize_t size)
         }
 
         if (n_attempts == UDT_N_MAX_ATTEMPTS_SEND)
-            return retval - len;
+            return n_sent_bytes;
+
+        n_sent_bytes += n_packet_bytes;
 
         boundary = PACKET_BOUNDARY_NONE;
-        offset += len;
+        offset += n_packet_bytes;
 
         n_attempts = 0;
     }
@@ -215,5 +228,5 @@ ssize_t udt_send_file_buffer_write(int fd, off_t offset, ssize_t size)
     udt_packet_new(&packet, NULL, 0);
     udt_send_packet_buffer_write(&packet);
 
-    return retval;
+    return n_sent_bytes;
 }

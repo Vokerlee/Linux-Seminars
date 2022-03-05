@@ -98,7 +98,7 @@ int udt_connect(int socket_fd, const struct sockaddr *addr, socklen_t len)
     }
 }
 
-ssize_t udt_recv(int socket_fd, char *buffer, int len)
+ssize_t udt_recv(int socket_fd, char *buffer, size_t len)
 {
     if (connection.is_connected == 0 && connection.is_client == 1)
         return -1;
@@ -117,7 +117,7 @@ ssize_t udt_recv(int socket_fd, char *buffer, int len)
     return received_bytes;
 }
 
-ssize_t udt_send(int socket_fd, char *buffer, int len)
+ssize_t udt_send(int socket_fd, char *buffer, size_t len)
 {
     if (connection.is_connected == 0)
         return -1;

@@ -39,12 +39,12 @@ void udt_packet_serialize(udt_packet_t *packet)
     }
 }
 
-int udt_packet_new(udt_packet_t *packet, char *buffer, int len)
+ssize_t udt_packet_new(udt_packet_t *packet, const void *buffer, size_t len)
 {
     if (packet == NULL)
         return -1;
 
-    if (len > sizeof(packet->data) || len < 0)
+    if (len > sizeof(packet->data))
         return -1;
 
     memset(packet->data, 0, sizeof(packet->data));
@@ -54,17 +54,10 @@ int udt_packet_new(udt_packet_t *packet, char *buffer, int len)
     return len;
 }
 
-int udt_packet_new_handshake(udt_packet_t *packet)
+ssize_t udt_packet_new_handshake(udt_packet_t *packet)
 {
     if (packet == NULL)
         return -1;
-
-    char buffer[8 * sizeof(uint32_t)];
-    uint32_t *p = NULL;
-    uint32_t flight_flag_size = 10;
-    uint32_t id = 10;
-    uint32_t req_type = 0;
-    uint32_t cookie = 10;
 
     packet_clear_header (*packet);
     packet_set_ctrl     (*packet);
@@ -72,24 +65,33 @@ int udt_packet_new_handshake(udt_packet_t *packet)
     packet_set_timestamp(*packet, 0);
     packet_set_id       (*packet, 0);
 
-    p = (uint32_t *) buffer;
-    *p++ = UDT_VERSION;
-    *p++ = connection.type;
-    *p++ = 0x123123;
-    *p++ = PACKET_DATA_SIZE;
-    *p++ = flight_flag_size;
-    *p++ = req_type;
-    *p++ = id;
-    *p++ = cookie;
+    uint32_t buffer[8] = {0};
 
-    p = (uint32_t *) (packet->data);
+    uint32_t flight_flag_size = 10;
+    uint32_t id = 10;
+    uint32_t request_type = 0;
+    uint32_t cookie = 10;
+
+    buffer[0] = UDT_VERSION;
+    buffer[1] = connection.type;
+    buffer[2] = 0x123123; // random number
+    buffer[3] = PACKET_DATA_SIZE;
+    buffer[4] = flight_flag_size;
+    buffer[5] = request_type;
+    buffer[6] = id;
+    buffer[7] = cookie;
+
     for (int i = 0; i < 8; ++i)
-    {
-        *p = htonl(*p);
-        p++;
-    }
+        buffer[i] = htonl(buffer[i]);
 
     return udt_packet_new(packet, buffer, sizeof(buffer));
+}
+
+unsigned int reverse(unsigned int x)
+{
+    x = (x & 0x00FF00FF) <<  8 | (x & 0xFF00FF00) >>  8;
+    x = (x & 0x0000FFFF) << 16 | (x & 0xFFFF0000) >> 16;
+    return x;
 }
 
 void udt_packet_parse(udt_packet_t packet)
@@ -126,7 +128,8 @@ void udt_packet_parse(udt_packet_t packet)
 
             case PACKET_TYPE_ACK:                   // ack
                 console_log("packet: ack");
-                connection.is_in_wait = 0;
+                if (packet_get_msgnum(packet) == connection.last_packet_number)
+                    connection.is_in_wait = 0;
 
                 break;
 
@@ -185,10 +188,9 @@ void udt_packet_parse(udt_packet_t packet)
 
             else if (packet.header._head1 & 0x40000000) // last packet
             {
-                printf("Last packet!\n");
                 setsockopt(connection.socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &(connection.saved_tv), sizeof(struct timeval));
 
-                if (packet_get_seqnum(packet) == (connection.last_packet_number + 1))
+                if (packet_get_msgnum(packet) == (connection.last_packet_number + 1))
                 {
                     udt_recv_buffer_write(packet.data, PACKET_DATA_SIZE);
                     connection.last_packet_number = 0;
@@ -211,7 +213,7 @@ void udt_packet_parse(udt_packet_t packet)
                 
             else // middle packet
             {
-                if (packet_get_seqnum(packet) == (connection.last_packet_number + 1))
+                if (packet_get_msgnum(packet) == (connection.last_packet_number + 1))
                 {
                     udt_recv_buffer_write(packet.data, -1);
                     connection.last_packet_number++;
@@ -221,12 +223,14 @@ void udt_packet_parse(udt_packet_t packet)
             } 
 
             udt_packet_t packet_ack;
+            size_t message_number = packet_get_msgnum(packet);
 
             packet_clear_header (packet_ack);
             packet_set_ctrl     (packet_ack);
             packet_set_type     (packet_ack, PACKET_TYPE_ACK);
             packet_set_timestamp(packet_ack, 0x0000051c);
             packet_set_id       (packet_ack, 0x08c42c74);
+            packet_set_msgnum   (packet_ack, message_number);
 
             udt_packet_new(&packet_ack, NULL, 0);
             udt_send_packet_buffer_write(&packet_ack);
