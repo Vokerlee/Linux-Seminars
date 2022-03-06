@@ -20,9 +20,12 @@
 #include <arpa/inet.h>
 
 // Others
+#define _UNIX03_THREADS
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+
+#define _UDT_DEBUG_
 
 // UDT
 #define UDT_VERSION_MAJOR 0
@@ -30,7 +33,7 @@
 #define UDT_VERSION       5
 
 #define UDT_N_MAX_ATTEMPTS_CONN   6 // attempts to connnect to server
-#define UDT_SECONDS_TIMEOUT_CONN  1
+#define UDT_SECONDS_TIMEOUT_CONN  2
 #define UDT_USECONDS_TIMEOUT_CONN 0
 
 #define UDT_SECONDS_TIMEOUT_SERVER  6
@@ -50,7 +53,7 @@
 #define HDR_MSG_LEN 80
 
 // General
-#define PACKET_DATA_SIZE 100
+#define PACKET_DATA_SIZE 1000
 #define N_MAX_FILENAME_LEN 1024
 
 #endif // !NET_CONFIG_H_

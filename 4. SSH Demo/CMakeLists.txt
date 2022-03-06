@@ -8,6 +8,26 @@ project ("Socket seminar" LANGUAGES C)
 
 #########################################################################
 
+# ASSEMBLY OPTIONS
+
+if(NOT CMAKE_C_EXTENSIONS)
+    set(CMAKE_C_EXTENSIONS OFF)
+endif()
+
+add_compile_options(
+        -Wall
+        -Wpedantic
+
+        -Wno-pointer-to-int-cast
+        -Wno-int-to-pointer-cast
+        -Wno-variadic-macros
+        -Wno-unused-parameter
+        -Wno-sign-compare
+        -Wno-misleading-indentation
+)
+
+#########################################################################
+
 # UDT LIBRARY
  
 set(UDT_PROTOCOL_LIB_NAME "udt_prot")
@@ -59,19 +79,3 @@ target_link_libraries(${CLIENT_FILE_NAME} ${UDT_PROTOCOL_LIB_NAME})
 
 #########################################################################
 
-# ASSEMBLY OPTIONS
-
-if(NOT CMAKE_C_EXTENSIONS)
-    set(CMAKE_C_EXTENSIONS OFF)
-endif()
-
-add_compile_options(
-    -Werror
-
-    -Wall
-    -Wextra
-    -Wpedantic
-    -Wno-pointer-to-int-cast
-)
-
-#########################################################################

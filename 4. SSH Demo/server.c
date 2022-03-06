@@ -101,7 +101,7 @@ int launch_udp_server(in_addr_t ip)
 	int socket_fd = ipv4_socket(SOCK_DGRAM, SO_REUSEADDR);
 	if (socket_fd == -1)
 		return -1;
-
+		
 	struct sockaddr_in server_addr = {0};
 	socklen_t length = sizeof(struct sockaddr_in);
 
@@ -109,11 +109,15 @@ int launch_udp_server(in_addr_t ip)
 	server_addr.sin_port = htons(USING_PORT);
 	server_addr.sin_addr.s_addr = ip;	
 
+	udt_set_server_handler(udt_server_handler);
+
 	if (udt_bind(socket_fd, (struct sockaddr *) &server_addr, length) == -1)
 	{
         fprintf(stderr, "Could not connect to socket\n");
         exit(errno);
     }
+
+	pthread_exit(NULL);
 
 	// char buffer[1000] = {0};
 	// ssize_t recv_bytes = udt_recv(socket_fd, buffer, 190);
@@ -131,18 +135,35 @@ int launch_udp_server(in_addr_t ip)
 
 	// udt_send(socket_fd, new_buffer, 180);
 
-	int file_fd = open("test_recv_file", O_WRONLY | O_TRUNC | O_CREAT, 0666);
-	if (file_fd == -1)
-		return -1;
+	// int file_fd = open("test_recv_file", O_WRONLY | O_TRUNC | O_CREAT, 0666);
+	// if (file_fd == -1)
+	// 	return -1;
 
-	off_t offset = 0;
+	// off_t offset = 0;
 
-	if (udt_recvfile(socket_fd, file_fd, &offset, 305) < 0)
-		return -1;
+	// if (udt_recvfile(socket_fd, file_fd, &offset, 305) < 0)
+	// 	return -1;
 
-    close(file_fd);
-
-	while(1);
+    // close(file_fd);
 
 	return 0;
+}
+
+void *udt_server_handler(void *arg)
+{
+	printf("In server handler!\n");
+
+	char message[PACKET_DATA_SIZE + 1] = {0};
+
+	while(1)
+	{
+		ssize_t recv_bytes = udt_recv(message, PACKET_DATA_SIZE);
+		if (recv_bytes != -1 && recv_bytes != 0)
+		{
+			printf("\tMessage: %s\n\n", message);
+			memset(message, 0, sizeof(message));
+		}
+	}
+
+	return NULL;
 }

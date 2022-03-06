@@ -30,7 +30,7 @@ enum connection_type
 	UNKNOWN     = 1
 };
 
-#define USING_PORT 16161
+#define USING_PORT 15000
 #define N_MAX_MSG_LEN 1024
 #define N_MAX_PENDING_CONNECTIONS 1024
 #define N_MAX_CLIENTS 1024

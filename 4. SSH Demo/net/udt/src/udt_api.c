@@ -16,40 +16,41 @@ int udt_startup()
 
 int udt_bind(int socket_fd, const struct sockaddr *addr, socklen_t len)
 {
+    if (connection.socket_fd != 0) // impossible to use this function twice
+        return -1;
+
+    if (connection.server_handler == NULL) // server handler wasn't set
+        return -1;
+
     int bind_error = bind(socket_fd, (const struct sockaddr *) addr, len);
     if (bind_error == -1)
         return -1;
 
-    memset(&connection, 0, sizeof(connection));
-
-    connection.socket_fd    = socket_fd;
-    connection.addrlen      = len;
-    connection.is_connected = 0;
-    connection.is_client    = 0;
+    connection.socket_fd      = socket_fd;
+    connection.addrlen        = len;
+    connection.is_connected   = 0;
+    connection.is_client      = 0;
+    connection.is_main_server = 1;
+    
+    int pthread_error = pthread_atfork(udt_prepare_to_fork, NULL, udt_child_after_fork);
+    if (pthread_error == -1)
+        return -1;
 
     pthread_t recv_thread;
-    pthread_t send_thread;
-
     int recv_pthread_error = pthread_create(&recv_thread, NULL, udt_receiver_start, (void *) &connection);
     if (recv_pthread_error == -1)
         return -1;
 
-    int send_pthread_error = pthread_create(&send_thread, NULL, udt_sender_start, (void *) &connection);
-    if (send_pthread_error == -1)
-        return -1;
-
     connection.recv_thread = recv_thread;
-    connection.send_thread = send_thread;
+
+    int old_type = 0;
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &old_type);
 
     return 0;
 }
 
 int udt_connect(int socket_fd, const struct sockaddr *addr, socklen_t len)
 {
-    int connect_error = connect(socket_fd, (struct sockaddr *) addr, len);
-    if (connect_error == -1)
-        return -1;
-
     memset(&connection, 0, sizeof(connection));
 
     connection.socket_fd    = socket_fd;
@@ -98,7 +99,7 @@ int udt_connect(int socket_fd, const struct sockaddr *addr, socklen_t len)
     }
 }
 
-ssize_t udt_recv(int socket_fd, char *buffer, size_t len)
+ssize_t udt_recv(char *buffer, size_t len)
 {
     if (connection.is_connected == 0 && connection.is_client == 1)
         return -1;
@@ -144,18 +145,18 @@ int udt_close(int socket_fd)
         while (connection.is_connected == 1);
     }
 
-    if (connection.socket_fd != 0) // is not cleaned yet
-    {
+    if (connection.recv_thread != 0)
         pthread_cancel(connection.recv_thread);
+
+    if (connection.send_thread != 0)
         pthread_cancel(connection.send_thread);
-    }
 
     memset(&connection, 0, sizeof(connection));
 
     return close(socket_fd);
 }
 
-ssize_t udt_recvfile(int socket_fd, int fd, off_t *offset, ssize_t filesize)
+ssize_t udt_recvfile(int fd, off_t *offset, ssize_t filesize)
 {
     if (connection.is_connected == 0 && connection.is_client == 1)
         return -1;
@@ -190,4 +191,10 @@ ssize_t udt_sendfile(int socket_fd, int fd, off_t offset, ssize_t filesize)
     setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &old_tv, sizeof(struct timeval));
         
     return sent_bytes;
+}
+
+void udt_set_server_handler(void *(*server_handler)(void *))
+{
+    memset(&connection, 0, sizeof(connection));
+    connection.server_handler = server_handler;
 }

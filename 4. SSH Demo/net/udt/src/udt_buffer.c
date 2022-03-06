@@ -2,6 +2,7 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "net_config.h"
 #include "udt_buffer.h"
 #include "udt_utils.h"
 

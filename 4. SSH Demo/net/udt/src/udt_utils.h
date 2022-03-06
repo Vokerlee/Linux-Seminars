@@ -1,20 +1,15 @@
 #ifndef UDT_UTILS_H_
 #define UDT_UTILS_H_
 
-#define DEBUG
-
-#ifdef DEBUG
-
+#include "net_config.h"
 #include <stdio.h>
-#define console_log_mod(MODIFIER, LOGDATA)  fprintf(stderr, MODIFIER, LOGDATA)
-#define console_log(LOGDATA)                fprintf(stderr, "%s\n", LOGDATA)
 
+#ifdef _UDT_DEBUG_
+    #define udt_console_log(arguments...) \
+        fprintf(stderr, arguments)
 #else
-
-#define console_log_mod(MODIFIER, LOGDATA)
-#define console_log(LOGDATA)
-
-#endif // !DEBUG
+    #define udt_console_log(arguments...)
+#endif // !_UDT_DEBUG_
 
 #define linked_list_add(buffer, block)                      \
 do                                                          \

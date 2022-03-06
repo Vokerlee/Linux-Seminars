@@ -22,6 +22,8 @@ typedef struct
     int no_ack;
     size_t last_packet_number;
 
+    int is_main_server;
+
     struct
     {   
         pthread_t recv_thread;
@@ -29,6 +31,8 @@ typedef struct
     };
 
     struct timeval saved_tv;
+
+    void* (*server_handler)(void *);
 } udt_conn_t;
 
 extern udt_conn_t connection;
@@ -39,5 +43,8 @@ void udt_connection_close   ();
 
 void *udt_sender_start  (void *arg);
 void *udt_receiver_start(void *arg);
+
+void udt_child_after_fork();
+void udt_prepare_to_fork ();
 
 #endif // !UDT_CORE_H_

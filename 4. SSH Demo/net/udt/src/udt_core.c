@@ -1,6 +1,8 @@
+#include "net_config.h"
 #include "udt_core.h"
 #include "udt_packet.h"
 #include "udt_buffer.h"
+#include "udt_utils.h"
 
 udt_conn_t connection = {0};
 
@@ -49,6 +51,31 @@ void udt_connection_close()
     udt_send_packet_buffer_write(&packet);
 }
 
+void udt_prepare_to_fork()
+{
+    pthread_mutex_init(&handshake_mutex, NULL);
+    pthread_cond_init (&handshake_cond,  NULL);
+
+    pthread_cond_signal(&SEND_BUFFER.cond);
+    pthread_mutex_init(&SEND_BUFFER.mutex, NULL);
+    pthread_cond_init (&SEND_BUFFER.cond,  NULL);
+}
+
+void udt_child_after_fork()
+{
+    connection.is_main_server = 0;
+    memset(&connection.last_addr, 0, sizeof(connection.last_addr));
+    connection.last_packet_number = 0;
+
+    close(connection.socket_fd);
+
+    connection.recv_thread = pthread_self();
+    pthread_create(&connection.send_thread, NULL, udt_sender_start, (void *) &connection);
+
+    pthread_t server_thread;
+    pthread_create(&server_thread, NULL, connection.server_handler, (void *) &connection);
+}
+
 void *udt_sender_start(void *arg)
 {
     int old_type = 0;
@@ -59,9 +86,10 @@ void *udt_sender_start(void *arg)
 
     while (udt_send_packet_buffer_read(&packet))
     {
-        if (sendto(conn->socket_fd, &packet, sizeof(udt_packet_t), 0,
-                    (struct sockaddr *) &(conn->addr), sizeof(struct sockaddr)) == -1)
-            exit(errno);
+        ssize_t n_sent_bytes = sendto(conn->socket_fd, &packet, sizeof(udt_packet_t), 0,
+                                     (struct sockaddr *) &(conn->addr), sizeof(struct sockaddr));
+        if (n_sent_bytes == -1)
+            perror("sendto()");
 
         memset(&packet, 0, sizeof(udt_packet_t));
     }
@@ -97,41 +125,39 @@ void *udt_receiver_start(void *arg)
                 conn->is_connected = 0;
                 conn->is_in_wait   = 0;
                 conn->addr.sin_addr.s_addr = 0;
-                printf("DISCONNECTION!\n");
+                udt_console_log("DISCONNECTION!\n");
 
                 pthread_cond_signal(&(RECV_BUFFER.cond));
 
                 struct timeval tv = {.tv_sec = 0, .tv_usec = 0};    
                 setsockopt(conn->socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
-            }
-            else // process of connection
-            {
-                pthread_cond_signal(&handshake_cond);
-            }
 
-            memset(&packet, 0, sizeof(udt_packet_t));
+                if (connection.is_client == 0)
+                    exit(EXIT_FAILURE);
+            }
+            else // process of connection (client)
+                pthread_cond_signal(&handshake_cond);
+
             errno = 0;
             continue;
         }
-        else if (recv_error == -1)
+        else if (recv_error == -1 && errno != ECONNREFUSED)
         {
-            memset(&packet, 0, sizeof(udt_packet_t));
+            perror("recvfrom()");
             continue;
         }
 
-        printf("MSG from ip = %s, port = %d\n", inet_ntoa(conn->last_addr.sin_addr), (int) ntohs(conn->last_addr.sin_port));
+        udt_console_log("MSG from ip = %s, port = %d\n", inet_ntoa(conn->last_addr.sin_addr), (int) ntohs(conn->last_addr.sin_port));
 
         if (conn->is_connected == 0)
             conn->addr = conn->last_addr;
         else if (conn->last_addr.sin_addr.s_addr != conn->addr.sin_addr.s_addr || conn->last_addr.sin_port != conn->addr.sin_port)
         {
-            printf("ALIEN!!!\n"); // now we just skeep aliens, but in future they will be handled by other subservers
-            memset(&packet, 0, sizeof(udt_packet_t));
+            udt_console_log("ALIEN!!!\n");
             continue;
         }
         
         udt_packet_parse(packet);
-        memset(&packet, 0, sizeof(udt_packet_t));
     }
 
     void *retval = 0;

@@ -26,9 +26,6 @@
 
 int ipv4_socket(int type, int optname);
 
-
-
-
 int ipv4_connect(int socket_fd, in_addr_t dest_ip, in_port_t dest_port);
 int ipv4_sock_connect(int type, in_addr_t dest_ip, in_port_t dest_port);
 

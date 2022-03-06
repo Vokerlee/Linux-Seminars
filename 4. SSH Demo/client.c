@@ -69,11 +69,11 @@ int launch_udp_client(in_addr_t dest_ip, int file_fd, const char *file_name)
 	else
         fprintf(stderr, "Connected\n");
 
-	// char buffer[1000] = {0};
-	// strcpy(buffer, "LLLLLLLLLJJJDJJ jhdjvfffffffffffffffffffffffffbshdbvhjsbdvhjbdscjebdvhjksjdbvhjce,whsdbvbhj,mehwbshj vm"
-	// 			   "efwsdfsdfdsfsdfdfgnj.k/.ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffk,jm55555555555555555555555555555555555555555555555555");
+	char buffer[PACKET_DATA_SIZE] = {0};
+	strcpy(buffer, "LLLLLLLLLJJJDJJ jhdjvfffffffffffffffffffffffffbshdbvhjsbdvhjbdscjebdvhjksjdbvhjce,whsdbvbhj,mehwbshj vm"
+				   "efwsdfsdfdsfsdfdfgnj.k/.ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffk,jm55555555555555555555555555555555555555555555555555");
 
-    // udt_send(socket_fd, buffer, 190);
+    udt_send(socket_fd, buffer, 244);
 
 	// char new_buffer[1000] = {0};
 	// ssize_t recv_bytes = udt_recv(socket_fd, new_buffer, 180);
@@ -83,8 +83,10 @@ int launch_udp_client(in_addr_t dest_ip, int file_fd, const char *file_name)
     //     memset(new_buffer, 0, sizeof(new_buffer));
     // }
 
-	if (udt_sendfile(socket_fd, file_fd, 0, 305) < 0)
-		return -1;
+	// if (udt_sendfile(socket_fd, file_fd, 0, 305) < 0)
+	// 	return -1;
 
 	udt_close(socket_fd);
+
+	return 0;
 }

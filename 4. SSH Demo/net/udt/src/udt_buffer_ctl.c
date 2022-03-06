@@ -3,12 +3,13 @@
 #include <unistd.h>
 #include <stdio.h>
 
+#include "net_config.h"
 #include "udt_packet.h"
 #include "udt_core.h"
 #include "udt_buffer.h"
 
-udt_buffer_t RECV_BUFFER = {};
-udt_buffer_t SEND_BUFFER = {};
+udt_buffer_t RECV_BUFFER = {0};
+udt_buffer_t SEND_BUFFER = {0};
 
 extern udt_conn_t connection;
 

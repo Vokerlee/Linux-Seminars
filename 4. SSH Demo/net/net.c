@@ -7,7 +7,6 @@ int ipv4_socket(int type, int optname)
 	if (type != SOCK_STREAM && type != SOCK_DGRAM)
 		return -1;
 
-
 	int socket_fd = socket(AF_INET, type, 0);
 
 	if (optname != 0 && socket_fd != -1)
@@ -210,7 +209,7 @@ ssize_t ipv4_send_file_tcp(int socket_fd, int file_fd, const char* file_name)
 
 ssize_t ipv4_send_file_udp(int socket_fd, int file_fd, const char* file_name)
 {
-    
+    return 0;
 }
 
 ssize_t ipv4_receive_file_tcp(int socket_fd, pthread_mutex_t *sync_mutex)
@@ -298,9 +297,5 @@ ssize_t ipv4_receive_file_tcp(int socket_fd, pthread_mutex_t *sync_mutex)
 
 ssize_t ipv4_receive_file_udp(int socket_fd, pthread_mutex_t *sync_mutex)
 {
-    
+    return 0;
 }
-
-
-
-

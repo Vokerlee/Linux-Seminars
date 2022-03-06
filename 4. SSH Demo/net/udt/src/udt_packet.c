@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "net.h"
 #include "net_config.h"
 #include "udt_packet.h"
 #include "udt_buffer.h"
@@ -87,13 +88,6 @@ ssize_t udt_packet_new_handshake(udt_packet_t *packet)
     return udt_packet_new(packet, buffer, sizeof(buffer));
 }
 
-unsigned int reverse(unsigned int x)
-{
-    x = (x & 0x00FF00FF) <<  8 | (x & 0xFF00FF00) >>  8;
-    x = (x & 0x0000FFFF) << 16 | (x & 0xFFFF0000) >> 16;
-    return x;
-}
-
 void udt_packet_parse(udt_packet_t packet)
 {
     udt_packet_deserialize(&packet);
@@ -103,46 +97,58 @@ void udt_packet_parse(udt_packet_t packet)
         switch (packet_get_type(packet))
         {
             case PACKET_TYPE_HANDSHAKE:             // handshake
-                console_log("packet: handshake");
+                udt_console_log("packet: handshake");
 
-                if (connection.is_client == 1)
+                if (connection.is_client == 1) // client
                 {
                     pthread_cond_signal(&handshake_cond);
                     udt_handshake_terminate();
                 }
-                else if (connection.is_connected == 0)
+                else if (connection.is_connected == 0) // server
                 {
-                    udt_packet_new_handshake(&packet);
-                    udt_send_packet_buffer_write(&packet);
-                    udt_handshake_terminate();
+                    int fork_value = fork();
+                    if (fork_value == -1)
+                        return;
+                    else if (fork_value == 0) // child
+                    {
+                        int new_socket_fd = ipv4_socket(SOCK_DGRAM, SO_REUSEADDR);
+                        if (new_socket_fd == -1)
+                            return;
 
-                    struct timeval tv = {.tv_sec = UDT_SECONDS_TIMEOUT_SERVER, .tv_usec = UDT_USECONDS_TIMEOUT_SERVER};
-                    setsockopt(connection.socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
+                        struct timeval tv = {.tv_sec = UDT_SECONDS_TIMEOUT_SERVER, .tv_usec = UDT_USECONDS_TIMEOUT_SERVER};
+                        setsockopt(new_socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
+
+                        connection.socket_fd = new_socket_fd;
+
+                        udt_packet_new_handshake(&packet);
+                        udt_send_packet_buffer_write(&packet);
+                        udt_handshake_terminate();
+                    }
                 }
 
                 break;
 
             case PACKET_TYPE_KEEPALIVE:             // keep-alive
-                console_log("packet: keep alive");
+                udt_console_log("packet: keep alive");
                 break;
 
             case PACKET_TYPE_ACK:                   // ack
-                console_log("packet: ack");
+                udt_console_log("packet: ack");
                 if (packet_get_msgnum(packet) == connection.last_packet_number)
                     connection.is_in_wait = 0;
 
                 break;
 
             case PACKET_TYPE_NAK:                   // nak
-                console_log("packet: nak");
+                udt_console_log("packet: nak");
                 break;
 
             case PACKET_TYPE_CONGDELAY:             // congestion-delay warn
-                console_log("packet: congestion delay");
+                udt_console_log("packet: congestion delay");
                 break;
 
             case PACKET_TYPE_SHUTDOWN:              // shutdown
-                console_log("packet: shutdown");
+                udt_console_log("packet: shutdown");
 
                 if (connection.is_connected == 0)
                 {
@@ -153,32 +159,31 @@ void udt_packet_parse(udt_packet_t packet)
                 connection.is_connected = 0;
                 if (connection.is_client == 0) // server
                 {
-                    struct timeval tv = {.tv_sec = 0, .tv_usec = 0};
-                    setsockopt(connection.socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
                     udt_connection_close();
+                    exit(EXIT_SUCCESS);
                 }
                     
                 break;
 
             case PACKET_TYPE_ACK2:                  // ack of ack
-                console_log("packet: ack of ack");
+                udt_console_log("packet: ack of ack");
                 break;
 
             case PACKET_TYPE_DROPREQ:               // message drop request
-                console_log("packet: drop request");
+                udt_console_log("packet: drop request");
                 break;
 
             case PACKET_TYPE_ERRSIG:                // error signal
-                console_log("packet: error signal");
+                udt_console_log("packet: error signal");
                 break;
 
             default:                                // unsupported packet type
-                console_log("packet: unknown");
+                udt_console_log("packet: unknown");
         }
     }
     else // data packet
     {
-        console_log("packet: data");
+        udt_console_log("packet: data");
 
         if (connection.is_connected == 1)
         {
@@ -236,7 +241,7 @@ void udt_packet_parse(udt_packet_t packet)
             udt_send_packet_buffer_write(&packet_ack);
         }
         else
-            printf("Packet from alien!\n");
+            udt_console_log("packet from alien!");
     }
 
     return;
