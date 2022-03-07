@@ -1,7 +1,7 @@
 #ifndef UDT_CORE_H_
 #define UDT_CORE_H_
 
-#include "net_config.h"
+#include "ipv4_net_config.h"
 
 typedef struct
 {
@@ -36,6 +36,8 @@ typedef struct
 } udt_conn_t;
 
 extern udt_conn_t connection;
+
+int udt_startup();
 
 void udt_handshake_init     ();
 void udt_handshake_terminate();

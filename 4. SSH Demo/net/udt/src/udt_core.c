@@ -1,4 +1,4 @@
-#include "net_config.h"
+#include "ipv4_net_config.h"
 #include "udt_core.h"
 #include "udt_packet.h"
 #include "udt_buffer.h"
@@ -11,6 +11,11 @@ pthread_cond_t  handshake_cond  = PTHREAD_COND_INITIALIZER;
 
 extern udt_buffer_t RECV_BUFFER;
 extern udt_buffer_t SEND_BUFFER;
+
+int udt_startup()
+{
+    return udt_send_buffer_init() || udt_recv_buffer_init();
+}
 
 void udt_handshake_init()
 {
@@ -73,7 +78,7 @@ void udt_child_after_fork()
     pthread_create(&connection.send_thread, NULL, udt_sender_start, (void *) &connection);
 
     pthread_t server_thread;
-    pthread_create(&server_thread, NULL, connection.server_handler, (void *) &connection);
+    pthread_create(&server_thread, NULL, connection.server_handler, (void *) &connection.socket_fd);
 }
 
 void *udt_sender_start(void *arg)

@@ -43,7 +43,7 @@ int udt_buffer_read_packet (udt_buffer_t *buffer, udt_packet_t *packet);
 ssize_t udt_recv_buffer_write(char *data, ssize_t len);
 ssize_t udt_recv_buffer_read (char *data, ssize_t len);
 
-ssize_t udt_send_buffer_write(char *data, ssize_t len);
+ssize_t udt_send_buffer_write(const char *data, ssize_t len);
 int udt_send_packet_buffer_write(udt_packet_t *packet);
 int udt_send_packet_buffer_read (udt_packet_t *packet);
 

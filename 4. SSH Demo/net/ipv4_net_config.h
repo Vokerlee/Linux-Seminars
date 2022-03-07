@@ -51,6 +51,7 @@
 
 // TCP
 #define HDR_MSG_LEN 80
+#define TCP_N_MAX_PENDING_CONNECTIONS 1024
 
 // General
 #define PACKET_DATA_SIZE 1000

@@ -1,7 +1,7 @@
 #ifndef UDT_UTILS_H_
 #define UDT_UTILS_H_
 
-#include "net_config.h"
+#include "ipv4_net_config.h"
 #include <stdio.h>
 
 #ifdef _UDT_DEBUG_

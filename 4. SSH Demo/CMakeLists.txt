@@ -15,15 +15,17 @@ if(NOT CMAKE_C_EXTENSIONS)
 endif()
 
 add_compile_options(
-        -Wall
-        -Wpedantic
+    -Wall
+    -Wpedantic
 
-        -Wno-pointer-to-int-cast
-        -Wno-int-to-pointer-cast
-        -Wno-variadic-macros
-        -Wno-unused-parameter
-        -Wno-sign-compare
-        -Wno-misleading-indentation
+    -Wno-pointer-to-int-cast
+    -Wno-int-to-pointer-cast
+    -Wno-variadic-macros
+    -Wno-unused-variable
+    -Wno-unused-parameter
+    -Wno-unused-function
+    -Wno-sign-compare
+    -Wno-misleading-indentation
 )
 
 #########################################################################
@@ -33,11 +35,11 @@ add_compile_options(
 set(UDT_PROTOCOL_LIB_NAME "udt_prot")
 
 set(UDT_PROTOCOL_SRC
-        ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_api.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_buffer.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_buffer_ctl.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_core.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_packet.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_api.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_buffer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_buffer_ctl.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_core.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_packet.c
 )
 
 add_library(${UDT_PROTOCOL_LIB_NAME} STATIC)
@@ -52,19 +54,23 @@ set(SERVER_FILE_NAME "server")
 set(CLIENT_FILE_NAME "client")
 
 set(HEADERS
-        ${CMAKE_CURRENT_SOURCE_DIR}/net/net.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/net.h
 )
 
 set(SERVER_SOURCES
-        ${CMAKE_CURRENT_SOURCE_DIR}/server.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/net/net.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/utils/utils.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/server.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/server_tcp.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/server_udp.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/ipv4_net.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/utils.c
 )
 
 set(CLIENT_SOURCES
-        ${CMAKE_CURRENT_SOURCE_DIR}/client.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/net/net.c
-        ${CMAKE_CURRENT_SOURCE_DIR}/utils/utils.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/client.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/client_tcp.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/client_udp.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/ipv4_net.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/utils/utils.c
 )
 
 # EXECUTABLE FILE
@@ -78,4 +84,3 @@ target_link_libraries(${SERVER_FILE_NAME} ${UDT_PROTOCOL_LIB_NAME})
 target_link_libraries(${CLIENT_FILE_NAME} ${UDT_PROTOCOL_LIB_NAME})
 
 #########################################################################
-

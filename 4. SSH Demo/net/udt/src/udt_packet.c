@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "net.h"
-#include "net_config.h"
+#include "ipv4_net.h"
+#include "ipv4_net_config.h"
 #include "udt_packet.h"
 #include "udt_buffer.h"
 #include "udt_core.h"
@@ -97,7 +97,7 @@ void udt_packet_parse(udt_packet_t packet)
         switch (packet_get_type(packet))
         {
             case PACKET_TYPE_HANDSHAKE:             // handshake
-                udt_console_log("packet: handshake");
+                udt_console_log("packet: handshake\n");
 
                 if (connection.is_client == 1) // client
                 {
@@ -129,26 +129,26 @@ void udt_packet_parse(udt_packet_t packet)
                 break;
 
             case PACKET_TYPE_KEEPALIVE:             // keep-alive
-                udt_console_log("packet: keep alive");
+                udt_console_log("packet: keep alive\n");
                 break;
 
             case PACKET_TYPE_ACK:                   // ack
-                udt_console_log("packet: ack");
+                udt_console_log("packet: ack\n");
                 if (packet_get_msgnum(packet) == connection.last_packet_number)
                     connection.is_in_wait = 0;
 
                 break;
 
             case PACKET_TYPE_NAK:                   // nak
-                udt_console_log("packet: nak");
+                udt_console_log("packet: nak\n");
                 break;
 
             case PACKET_TYPE_CONGDELAY:             // congestion-delay warn
-                udt_console_log("packet: congestion delay");
+                udt_console_log("packet: congestion delay\n");
                 break;
 
             case PACKET_TYPE_SHUTDOWN:              // shutdown
-                udt_console_log("packet: shutdown");
+                udt_console_log("packet: shutdown\n");
 
                 if (connection.is_connected == 0)
                 {
@@ -158,32 +158,29 @@ void udt_packet_parse(udt_packet_t packet)
 
                 connection.is_connected = 0;
                 if (connection.is_client == 0) // server
-                {
-                    udt_connection_close();
                     exit(EXIT_SUCCESS);
-                }
                     
                 break;
 
             case PACKET_TYPE_ACK2:                  // ack of ack
-                udt_console_log("packet: ack of ack");
+                udt_console_log("packet: ack of ack\n");
                 break;
 
             case PACKET_TYPE_DROPREQ:               // message drop request
-                udt_console_log("packet: drop request");
+                udt_console_log("packet: drop request\n");
                 break;
 
             case PACKET_TYPE_ERRSIG:                // error signal
-                udt_console_log("packet: error signal");
+                udt_console_log("packet: error signal\n");
                 break;
 
             default:                                // unsupported packet type
-                udt_console_log("packet: unknown");
+                udt_console_log("packet: unknown\n");
         }
     }
     else // data packet
     {
-        udt_console_log("packet: data");
+        udt_console_log("packet: data\n");
 
         if (connection.is_connected == 1)
         {
@@ -241,7 +238,7 @@ void udt_packet_parse(udt_packet_t packet)
             udt_send_packet_buffer_write(&packet_ack);
         }
         else
-            udt_console_log("packet from alien!");
+            udt_console_log("packet from alien!\n");
     }
 
     return;

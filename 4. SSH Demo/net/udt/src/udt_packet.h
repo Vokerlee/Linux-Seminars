@@ -1,7 +1,7 @@
 #ifndef UDT_PACKET_H_
 #define UDT_PACKET_H_
 
-#include "net_config.h"
+#include "ipv4_net_config.h"
 
 #define PACKET_HEADER_SIZE 6
 

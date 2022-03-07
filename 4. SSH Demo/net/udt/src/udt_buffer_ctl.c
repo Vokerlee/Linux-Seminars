@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#include "net_config.h"
+#include "ipv4_net_config.h"
 #include "udt_packet.h"
 #include "udt_core.h"
 #include "udt_buffer.h"
@@ -33,7 +33,7 @@ ssize_t udt_recv_buffer_read(char *data, ssize_t len)
     return udt_buffer_read(&RECV_BUFFER, data, len);
 }
 
-ssize_t udt_send_buffer_write(char *data, ssize_t len)
+ssize_t udt_send_buffer_write(const char *data, ssize_t len)
 {
     if (data == NULL)
         return -1;
@@ -48,7 +48,7 @@ ssize_t udt_send_buffer_write(char *data, ssize_t len)
     int boundary = PACKET_BOUNDARY_START; 
 
     long n_bytes_to_send = len;
-    char *buffer = data;
+    const char *buffer = data;
 
     while (n_bytes_to_send > 0)
     {

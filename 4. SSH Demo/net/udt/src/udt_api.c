@@ -1,18 +1,13 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "net.h"
+#include "ipv4_net.h"
 #include "udt_api.h"
 #include "udt_core.h"
 #include "udt_utils.h"
 #include "udt_buffer.h"
 
 extern udt_conn_t connection;
-
-int udt_startup()
-{
-    return udt_send_buffer_init() || udt_recv_buffer_init();
-}
 
 int udt_bind(int socket_fd, const struct sockaddr *addr, socklen_t len)
 {
@@ -21,6 +16,8 @@ int udt_bind(int socket_fd, const struct sockaddr *addr, socklen_t len)
 
     if (connection.server_handler == NULL) // server handler wasn't set
         return -1;
+
+    udt_startup();
 
     int bind_error = bind(socket_fd, (const struct sockaddr *) addr, len);
     if (bind_error == -1)
@@ -46,12 +43,19 @@ int udt_bind(int socket_fd, const struct sockaddr *addr, socklen_t len)
     int old_type = 0;
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &old_type);
 
+    pthread_exit(NULL);
+
     return 0;
 }
 
 int udt_connect(int socket_fd, const struct sockaddr *addr, socklen_t len)
 {
+    if (addr == NULL)
+        return -1;
+        
     memset(&connection, 0, sizeof(connection));
+
+    udt_startup();
 
     connection.socket_fd    = socket_fd;
     connection.addr         = *((struct sockaddr_in *) addr);
@@ -99,8 +103,11 @@ int udt_connect(int socket_fd, const struct sockaddr *addr, socklen_t len)
     }
 }
 
-ssize_t udt_recv(char *buffer, size_t len)
+ssize_t udt_recv(int socket_fd, char *buffer, size_t len)
 {
+    if (buffer == NULL)
+        return -1;
+
     if (connection.is_connected == 0 && connection.is_client == 1)
         return -1;
 
@@ -118,8 +125,11 @@ ssize_t udt_recv(char *buffer, size_t len)
     return received_bytes;
 }
 
-ssize_t udt_send(int socket_fd, char *buffer, size_t len)
+ssize_t udt_send(int socket_fd, const char *buffer, size_t len)
 {
+    if (buffer == NULL)
+        return -1;
+
     if (connection.is_connected == 0)
         return -1;
 
@@ -142,7 +152,7 @@ int udt_close(int socket_fd)
     if (connection.is_connected == 1)
     {   
         udt_connection_close();
-        while (connection.is_connected == 1);
+        connection.is_connected = 0;
     }
 
     if (connection.recv_thread != 0)
@@ -156,8 +166,11 @@ int udt_close(int socket_fd)
     return close(socket_fd);
 }
 
-ssize_t udt_recvfile(int fd, off_t *offset, ssize_t filesize)
+ssize_t udt_recvfile(int socket_fd, int fd, off_t *offset, ssize_t filesize)
 {
+    if (offset == NULL)
+        return -1;
+
     if (connection.is_connected == 0 && connection.is_client == 1)
         return -1;
 
