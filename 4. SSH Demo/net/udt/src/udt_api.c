@@ -142,7 +142,7 @@ ssize_t udt_send(int socket_fd, const char *buffer, size_t len)
 
     ssize_t sent_bytes = udt_send_buffer_write(buffer, len);
     if (connection.is_connected == 0 && connection.is_client == 1)
-    setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &old_tv, sizeof(struct timeval));
+        setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &old_tv, sizeof(struct timeval));
         
     return sent_bytes;
 }

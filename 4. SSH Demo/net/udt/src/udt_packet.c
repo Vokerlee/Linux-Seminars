@@ -96,7 +96,7 @@ void udt_packet_parse(udt_packet_t packet)
     {
         switch (packet_get_type(packet))
         {
-            case PACKET_TYPE_HANDSHAKE:             // handshake
+            case PACKET_TYPE_HANDSHAKE: // handshake
                 udt_console_log("packet: handshake\n");
 
                 if (connection.is_client == 1) // client

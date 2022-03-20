@@ -92,7 +92,7 @@ void *udt_sender_start(void *arg)
     while (udt_send_packet_buffer_read(&packet))
     {
         ssize_t n_sent_bytes = sendto(conn->socket_fd, &packet, sizeof(udt_packet_t), 0,
-                                     (struct sockaddr *) &(conn->addr), sizeof(struct sockaddr));
+                                      (struct sockaddr *) &(conn->addr), sizeof(struct sockaddr));
         if (n_sent_bytes == -1)
             perror("sendto()");
 

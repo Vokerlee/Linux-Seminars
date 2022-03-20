@@ -24,9 +24,11 @@ ssize_t udt_buffer_write(udt_buffer_t *buffer, char *data, ssize_t len)
     if (buffer == NULL || data == NULL)
         return -1;
 
-    char *new_data = strdup(data);
+    char *new_data = malloc(len * sizeof(char));
     if (new_data == NULL)
         return -1;
+
+    memcpy(new_data, data, len);
 
     udt_block_t *new_block = (udt_block_t *) calloc(1, sizeof(udt_block_t));
     if (new_block == NULL)
@@ -60,6 +62,7 @@ ssize_t udt_buffer_read(udt_buffer_t *buffer, char *data, ssize_t len)
 
     while (last == 0)
     {
+        block = NULL;
         linked_list_get((*buffer), block);
 
         if (block == NULL)
@@ -68,15 +71,15 @@ ssize_t udt_buffer_read(udt_buffer_t *buffer, char *data, ssize_t len)
         last = block->last;
 
         ssize_t n = ((len - cur_pos) < block->len) ? len - cur_pos : block->len;
-        strncpy(data + cur_pos, block->data, n);
+        memcpy(data + cur_pos, block->data, n);
         n_read_bytes += n;
         cur_pos      += n;
 
-        if (cur_pos >= len)
-            break;
-
         free(block->data);
         free(block);
+
+        if (cur_pos >= len)
+            break;
     }
 
     return n_read_bytes;

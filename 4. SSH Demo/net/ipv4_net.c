@@ -83,12 +83,50 @@ int ipv4_close(int socket_fd, int connection_type)
 	if (connection_type == SOCK_STREAM_UDT)
 		return udt_close(socket_fd);
 	else
+	{
+		int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_SHUTDOWN_TYPE, 0, NULL, 0, NULL, 0, SOCK_STREAM);
+		if (ctl_msg_state == -1)
+		{
+			close(socket_fd);
+			return -1;
+		}
+
 		return close(socket_fd);
+	}
+}
+
+static int ipv4_send_ctl_message(int socket_fd, enum ipv4_msg_type msg_type, uint64_t msg_length, 
+								 uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer, size_t spare_buffer_size,
+								 int connection_type)
+{
+	if (spare_fields != NULL && spare_fields_size > IPV4_SPARE_FIELDS)
+		return -1;
+
+	if (spare_buffer != NULL && spare_buffer_size > IPV4_SPARE_BUFFER_LENGTH)
+		return -1;
+
+	ipv4_ctl_message message = {.message_type = msg_type, .message_length = msg_length};
+
+	if (spare_fields != NULL)
+		memcpy(message.spare_fields, spare_fields, spare_fields_size * sizeof(spare_fields[0]));
+	else if (spare_buffer != NULL)
+		memcpy(message.spare_buffer, spare_buffer, spare_buffer_size * sizeof(spare_buffer[0]));
+
+	if (connection_type == SOCK_STREAM || connection_type == SOCK_DGRAM)
+		return send(socket_fd, &message, sizeof(ipv4_ctl_message), 0);
+	else if (connection_type == SOCK_STREAM_UDT)
+		return udt_send(socket_fd, (char *) &message, sizeof(ipv4_ctl_message));
+	else
+		return -1;
 }
 
 ssize_t ipv4_send_message(int socket_fd, const void *buffer, size_t n_bytes, int connection_type)
 {
 	if (buffer == NULL)
+		return -1;
+
+	int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_MSG_HEADER_TYPE, n_bytes, NULL, 0, NULL, 0, connection_type);
+	if (ctl_msg_state == -1)
 		return -1;
 
 	if (connection_type == SOCK_STREAM || connection_type == SOCK_DGRAM)
