@@ -3,12 +3,13 @@
 
 #include "ipv4_net_config.h"
 #include <stdio.h>
+#include <syslog.h>
 
-#ifdef _UDT_DEBUG_
-    #define udt_console_log(arguments...) \
-        fprintf(stderr, arguments)
+#ifdef _UDT_LOG_
+    #define udt_syslog(priority, fmt, ...) \
+        syslog(priority, fmt, ##__VA_ARGS__)
 #else
-    #define udt_console_log(arguments...)
+    #define udt_console_log(priority, fmt, ...)
 #endif // !_UDT_DEBUG_
 
 #define linked_list_add(buffer, block)                      \

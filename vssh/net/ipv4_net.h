@@ -69,7 +69,7 @@ ssize_t ipv4_receive_file_tcp(int socket_fd, pthread_mutex_t *sync_mutex);
 ssize_t ipv4_receive_file_udp(int socket_fd, pthread_mutex_t *sync_mutex);
 
 static int ipv4_send_ctl_message(int socket_fd, enum ipv4_msg_type msg_type, uint64_t msg_length, 
-								 uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer, size_t spare_buffer_size,
-								 int connection_type);
+                                 uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer, size_t spare_buffer_size,
+                                 int connection_type);
  
 #endif // !NET_H_

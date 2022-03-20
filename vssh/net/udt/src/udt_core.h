@@ -2,6 +2,7 @@
 #define UDT_CORE_H_
 
 #include "ipv4_net_config.h"
+#include <string.h>
 
 typedef struct
 {

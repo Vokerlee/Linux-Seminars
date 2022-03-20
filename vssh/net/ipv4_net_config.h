@@ -25,7 +25,9 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 
-#define _UDT_DEBUG_
+#define _UDT_LOG_
+#define _IPV4_UDT_LOG_
+#define _IPV4_TCP_LOG_
 
 // UDT
 #define UDT_VERSION_MAJOR 0
