@@ -21,7 +21,7 @@ int vssh_handle_arguments(int argc, char *argv[])
     else if (strcmp(argv[1], "--msg") == 0 || strcmp(argv[1], "-m") == 0)
     {
         if (argc == 2)
-            errx(EX_USAGE, "error: too few arguments\n"
+            errx(EX_USAGE, "Error: too few arguments\n"
                            "See --help option");
 
         if (strcmp(argv[2], "--tcp") == 0)
@@ -67,6 +67,22 @@ int vssh_handle_arguments(int argc, char *argv[])
 
         return kill(vsshd_pid, SIGTERM);
     }
+    else if (strcmp(argv[1], "--broadcast") == 0 || strcmp(argv[1], "-br") == 0)
+    {
+        if (argc == 2)
+            errx(EX_USAGE, "Error: too few arguments\n"
+                           "See --help option");
+
+        int broadcast_state = vssh_send_broadcast(inet_addr(argv[2]));
+        if (broadcast_state == -1)
+        {
+            fprintf(stderr, "broadcast error\n");
+            exit(EXIT_FAILURE);
+        }
+    }
+        
     else
         return -1;
+
+    return 0;
 }

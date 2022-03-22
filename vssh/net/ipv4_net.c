@@ -95,9 +95,9 @@ int ipv4_close(int socket_fd, int connection_type)
     }
 }
 
-static int ipv4_send_ctl_message(int socket_fd, enum ipv4_msg_type msg_type, uint64_t msg_length, 
-                                 uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer, size_t spare_buffer_size,
-                                 int connection_type)
+int ipv4_send_ctl_message(int socket_fd, uint64_t msg_type, uint64_t msg_length, 
+                          uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer, size_t spare_buffer_size,
+                          int connection_type)
 {
     if (spare_fields != NULL && spare_fields_size > IPV4_SPARE_FIELDS)
         return -1;

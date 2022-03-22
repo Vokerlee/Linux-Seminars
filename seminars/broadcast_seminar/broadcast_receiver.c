@@ -20,7 +20,7 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 
-#define BROADCAST_PORT 27311
+#define BROADCAST_PORT 16161
 #define N_MAX_MSG_LEN  1024
 
 int main()

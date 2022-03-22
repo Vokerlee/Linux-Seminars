@@ -5,7 +5,7 @@ static const char *VSSHD_PID_FILE_NAME = "/var/run/vsshd.pid";
 
 int main(int argc, char *argv[])
 {
-    if (argc < 3)
+    if (argc != 2)
         errx(EX_USAGE, "Error: invalid amount of arguments");
 
     int is_daemon = become_daemon(0); // become daemon
@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
         
     // Launch server
     if (connection_type == SOCK_STREAM)
-        return launch_vssh_tcp_server(inet_addr(argv[2]));
+        return launch_vssh_tcp_server(INADDR_ANY);
     else if (connection_type == SOCK_DGRAM)
-        return launch_vssh_udp_server(inet_addr(argv[2]));
+        return launch_vssh_udp_server(INADDR_ANY);
 }

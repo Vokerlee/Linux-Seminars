@@ -1,4 +1,5 @@
 #include "ipv4_net_config.h"
+#include "ipv4_net.h"
 #include "udt_core.h"
 #include "udt_packet.h"
 #include "udt_buffer.h"
@@ -134,7 +135,7 @@ void *udt_receiver_start(void *arg)
                 conn->is_connected = 0;
                 conn->is_in_wait   = 0;
                 conn->addr.sin_addr.s_addr = 0;
-                udt_syslog(LOG_NOTICE, "[UDT]: disconnection has occured from client: ip = %s, port = %d", 
+                udt_syslog(LOG_NOTICE, "[UDT]: disconnection has occured from client: IP = %s, port = %d", 
                            inet_ntoa(conn->addr.sin_addr), (int) ntohs(conn->addr.sin_port));
 
                 pthread_cond_signal(&(RECV_BUFFER.cond));
@@ -169,7 +170,19 @@ void *udt_receiver_start(void *arg)
             udt_syslog(LOG_ERR, "[UDT]: message from unknown source");
             continue;
         }
-        
+
+        if (((ipv4_ctl_message *) &packet)->message_type == IPV4_BROADCAST_TYPE)
+        {
+            udt_syslog(LOG_INFO, "[UDT]: packet: broadcast request");
+            const char respond_message[PACKET_DATA_SIZE] = {0};
+
+            ssize_t sent_bytes = sendto(connection.socket_fd, respond_message, PACKET_DATA_SIZE, 0, (struct sockaddr *) &connection.addr, connection.addrlen);
+            if (sent_bytes == -1 || sent_bytes != sizeof(respond_message))
+                udt_syslog(LOG_ERR, "[UDT]: cannot respond to broadcast request");
+
+            continue;
+        }
+
         udt_packet_parse(packet);
     }
 

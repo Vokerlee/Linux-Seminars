@@ -1,10 +1,11 @@
-#ifndef NET_H_
-#define NET_H_
+#ifndef IPV4_NET_H_
+#define IPV4_NET_H_
 
 // General
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sysexits.h>
@@ -30,18 +31,16 @@
 #define IPV4_SPARE_FIELDS 64
 #define IPV4_SPARE_BUFFER_LENGTH 256
 
-enum ipv4_msg_type
-{
-    IPV4_MSG_HEADER_TYPE  = 1,
-    IPV4_FILE_HEADER_TYPE = 2,
-    IPV4_SHUTDOWN_TYPE    = 3,
-};
+#define IPV4_MSG_HEADER_TYPE  1UL
+#define IPV4_FILE_HEADER_TYPE 2UL
+#define IPV4_SHUTDOWN_TYPE    3UL
+#define IPV4_BROADCAST_TYPE   4UL
 
 typedef struct
 {
-    uint64_t message_length;
     uint64_t message_type;
-
+    uint64_t message_length;
+    
     union
     {
         uint32_t spare_fields[IPV4_SPARE_FIELDS];
@@ -68,8 +67,8 @@ ssize_t ipv4_receive_file(int type, int socket_fd, pthread_mutex_t *sync_mutex);
 ssize_t ipv4_receive_file_tcp(int socket_fd, pthread_mutex_t *sync_mutex);
 ssize_t ipv4_receive_file_udp(int socket_fd, pthread_mutex_t *sync_mutex);
 
-static int ipv4_send_ctl_message(int socket_fd, enum ipv4_msg_type msg_type, uint64_t msg_length, 
-                                 uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer, size_t spare_buffer_size,
-                                 int connection_type);
+int ipv4_send_ctl_message(int socket_fd, uint64_t msg_type, uint64_t msg_length, 
+                          uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer, size_t spare_buffer_size,
+                          int connection_type);
  
-#endif // !NET_H_
+#endif // !IPV4_NET_H_
