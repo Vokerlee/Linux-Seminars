@@ -1,5 +1,4 @@
 #include "utils.h"
-#include "ipv4_net_config.h"
 #include "ipv4_net.h"
 
 int ipv4_socket(int type, int optname)

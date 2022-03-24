@@ -79,8 +79,7 @@ int vssh_handle_arguments(int argc, char *argv[])
             fprintf(stderr, "broadcast error\n");
             exit(EXIT_FAILURE);
         }
-    }
-        
+    }   
     else
         return -1;
 

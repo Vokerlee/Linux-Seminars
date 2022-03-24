@@ -87,7 +87,7 @@ void *udt_sender_start(void *arg)
     int old_type = 0;
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &old_type);
 
-    udt_syslog(LOG_INFO, "[UDT]: sender-thread is ready to send packets");
+    udt_syslog(LOG_INFO, "sender-thread is ready to send packets");
 
     udt_conn_t *conn = (udt_conn_t *) arg;
     udt_packet_t packet;
@@ -97,7 +97,7 @@ void *udt_sender_start(void *arg)
         ssize_t n_sent_bytes = sendto(conn->socket_fd, &packet, sizeof(udt_packet_t), 0,
                                       (struct sockaddr *) &(conn->addr), sizeof(struct sockaddr));
         if (n_sent_bytes == -1)
-            udt_syslog(LOG_ERR, "[UDT]: sendto() error: %s", strerror(errno));
+            udt_syslog(LOG_ERR, "sendto() error: %s", strerror(errno));
 
         memset(&packet, 0, sizeof(udt_packet_t));
     }
@@ -111,7 +111,7 @@ void *udt_receiver_start(void *arg)
     int old_type = 0;
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &old_type);
 
-    udt_syslog(LOG_INFO, "[UDT]: receiver-thread is ready to receive packets");
+    udt_syslog(LOG_INFO, "receiver-thread is ready to receive packets");
 
     udt_conn_t *conn = (udt_conn_t *) arg;
     udt_packet_t packet;
@@ -135,7 +135,7 @@ void *udt_receiver_start(void *arg)
                 conn->is_connected = 0;
                 conn->is_in_wait   = 0;
                 conn->addr.sin_addr.s_addr = 0;
-                udt_syslog(LOG_NOTICE, "[UDT]: disconnection has occured from client: IP = %s, port = %d", 
+                udt_syslog(LOG_NOTICE, "disconnection has occured from client: IP = %s, port = %d", 
                            inet_ntoa(conn->addr.sin_addr), (int) ntohs(conn->addr.sin_port));
 
                 pthread_cond_signal(&(RECV_BUFFER.cond));
@@ -145,7 +145,7 @@ void *udt_receiver_start(void *arg)
 
                 if (connection.is_client == 0)
                 {
-                    udt_syslog(LOG_NOTICE, "[UDT]: exit because of disconnection");
+                    udt_syslog(LOG_NOTICE, "exit because of disconnection");
                     exit(EXIT_FAILURE);
                 }
             }
@@ -157,28 +157,28 @@ void *udt_receiver_start(void *arg)
         }
         else if (recv_error == -1)
         {
-            udt_syslog(LOG_ERR, "[UDT]: recvfrom() error: %s", strerror(errno));
+            udt_syslog(LOG_ERR, "recvfrom() error: %s", strerror(errno));
             continue;
         }
 
-        udt_syslog(LOG_INFO, "[UDT]: message from IP = %s, port = %d\n", inet_ntoa(conn->last_addr.sin_addr), (int) ntohs(conn->last_addr.sin_port));
+        udt_syslog(LOG_INFO, "message from IP = %s, port = %d\n", inet_ntoa(conn->last_addr.sin_addr), (int) ntohs(conn->last_addr.sin_port));
 
         if (conn->is_connected == 0)
             conn->addr = conn->last_addr;
         else if (conn->last_addr.sin_addr.s_addr != conn->addr.sin_addr.s_addr || conn->last_addr.sin_port != conn->addr.sin_port)
         {
-            udt_syslog(LOG_ERR, "[UDT]: message from unknown source");
+            udt_syslog(LOG_ERR, "message from unknown source");
             continue;
         }
 
         if (((ipv4_ctl_message *) &packet)->message_type == IPV4_BROADCAST_TYPE)
         {
-            udt_syslog(LOG_INFO, "[UDT]: packet: broadcast request");
+            udt_syslog(LOG_INFO, "packet: broadcast request");
             const char respond_message[PACKET_DATA_SIZE] = {0};
 
             ssize_t sent_bytes = sendto(connection.socket_fd, respond_message, PACKET_DATA_SIZE, 0, (struct sockaddr *) &connection.addr, connection.addrlen);
             if (sent_bytes == -1 || sent_bytes != sizeof(respond_message))
-                udt_syslog(LOG_ERR, "[UDT]: cannot respond to broadcast request");
+                udt_syslog(LOG_ERR, "cannot respond to broadcast request");
 
             continue;
         }

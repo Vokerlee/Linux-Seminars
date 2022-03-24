@@ -7,7 +7,7 @@ void *udt_server_handler(void *connection_socket)
     ipv4_ctl_message ctl_message = {0};
     char message[PACKET_DATA_SIZE + 1] = {0};
 
-    ipv4_udt_syslog(LOG_INFO, "[IPv4 UDT]: is ready to work");
+    ipv4_udt_syslog(LOG_INFO, "is ready to work");
 
     while(1)
     {
@@ -20,9 +20,9 @@ void *udt_server_handler(void *connection_socket)
                 {
                     recv_bytes = ipv4_receive_message(socket_fd, message, ctl_message.message_length, SOCK_STREAM_UDT);
                     if (recv_bytes == -1 || recv_bytes == 0)
-                        ipv4_udt_syslog(LOG_ERR, "[IPv4 UDT]: couldn't receive message after getting msg header");
+                        ipv4_udt_syslog(LOG_ERR, "couldn't receive message after getting msg header");
 
-                    ipv4_udt_syslog(LOG_INFO, "[IPv4 UDT]: get message:\n%s", message);
+                    ipv4_udt_syslog(LOG_INFO, "get message:\n%s", message);
 
                     break;
                 }
@@ -44,17 +44,17 @@ int launch_vssh_udp_server(in_addr_t ip)
     int socket_fd = ipv4_socket(SOCK_DGRAM, SO_REUSEADDR);
     if (socket_fd == -1)
     {
-        ipv4_udt_syslog(LOG_ERR, "[IPv4 UDT]: error while getting socket: %s", strerror(errno));
-        ipv4_udt_syslog(LOG_ERR, "[IPv4 UDT]: exit because of error");
+        ipv4_udt_syslog(LOG_ERR, "error while getting socket: %s", strerror(errno));
+        ipv4_udt_syslog(LOG_ERR, "exit because of error");
         exit(EXIT_FAILURE);
     }
 
     int bind_state = ipv4_bind(socket_fd, ip, htons(SSH_SERVER_PORT), SOCK_STREAM_UDT, udt_server_handler);
     if (bind_state == -1)
     {
-        ipv4_udt_syslog(LOG_ERR, "[IPv4 UDT]: error while binding to socket");
+        ipv4_udt_syslog(LOG_ERR, "error while binding to socket");
         close(socket_fd);
-        ipv4_udt_syslog(LOG_ERR, "[IPv4 UDT]: exit because of error");
+        ipv4_udt_syslog(LOG_ERR, "exit because of error");
         exit(EXIT_FAILURE);
     }
 

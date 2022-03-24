@@ -35,7 +35,7 @@ add_compile_options(
 set(IPV4NET_LIB_NAME "ipv4net")
 
 set(IPV4NET_LIB_SRC
-    ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_api.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt.c
     ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_buffer.c
     ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_buffer_ctl.c
     ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_core.c

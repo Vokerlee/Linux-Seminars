@@ -26,7 +26,7 @@
 #include <fcntl.h>
 
 #include "ipv4_net_config.h"
-#include "udt_api.h"
+#include "udt.h"
 
 #define IPV4_SPARE_FIELDS 64
 #define IPV4_SPARE_BUFFER_LENGTH 256

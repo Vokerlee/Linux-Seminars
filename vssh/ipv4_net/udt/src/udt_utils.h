@@ -7,7 +7,7 @@
 
 #ifdef _UDT_LOG_
     #define udt_syslog(priority, fmt, ...) \
-        syslog(priority, fmt, ##__VA_ARGS__)
+        syslog(priority, "[UDT]: " fmt, ##__VA_ARGS__)
 #else
     #define udt_console_log(priority, fmt, ...)
 #endif // !_UDT_DEBUG_

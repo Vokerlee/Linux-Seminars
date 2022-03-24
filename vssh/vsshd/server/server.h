@@ -2,9 +2,6 @@
 #define SERVER_H_
 
 #include "ipv4_net.h"
-#include "ipv4_net_config.h"
-#include "udt_api.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -16,14 +13,14 @@
 
 #ifdef _IPV4_TCP_LOG_
     #define ipv4_tcp_syslog(priority, fmt, ...) \
-        syslog(priority, fmt, ##__VA_ARGS__)
+        syslog(priority, "[IPv4 TCP]: " fmt, ##__VA_ARGS__)
 #else
     #define ipv4_tcp_syslog(priority, fmt, ...)
 #endif // !_IPV4_TCP_LOG_
 
 #ifdef _IPV4_UDT_LOG_
     #define ipv4_udt_syslog(priority, fmt, ...) \
-        syslog(priority, fmt, ##__VA_ARGS__)
+        syslog(priority, "[IPv4 UDT]: " fmt, ##__VA_ARGS__)
 #else
     #define ipv4_udt_syslog(priority, fmt, ...)
 #endif // !_IPV4_UDT_LOG_

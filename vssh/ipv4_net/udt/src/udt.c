@@ -2,7 +2,7 @@
 #include <unistd.h>
 
 #include "ipv4_net.h"
-#include "udt_api.h"
+#include "udt.h"
 #include "udt_core.h"
 #include "udt_utils.h"
 #include "udt_buffer.h"

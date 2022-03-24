@@ -97,7 +97,7 @@ void udt_packet_parse(udt_packet_t packet)
         switch (packet_get_type(packet))
         {
             case PACKET_TYPE_HANDSHAKE: // handshake
-                udt_syslog(LOG_INFO, "[UDT]: packet: handshake");
+                udt_syslog(LOG_INFO, "packet: handshake");
 
                 if (connection.is_client == 1) // client
                 {
@@ -106,12 +106,12 @@ void udt_packet_parse(udt_packet_t packet)
                 }
                 else if (connection.is_connected == 0) // server
                 {
-                    udt_syslog(LOG_INFO, "[UDT]: create new process for client...");
+                    udt_syslog(LOG_INFO, "create new process for client...");
 
                     int fork_value = fork();
                     if (fork_value == -1)
                     {
-                        udt_syslog(LOG_ERR, "[UDT]: error in fork() while creating process for client...");
+                        udt_syslog(LOG_ERR, "error in fork() while creating process for client...");
                         return;
                     }
                     else if (fork_value == 0) // child
@@ -119,8 +119,8 @@ void udt_packet_parse(udt_packet_t packet)
                         int new_socket_fd = ipv4_socket(SOCK_DGRAM, SO_REUSEADDR);
                         if (new_socket_fd == -1)
                         {
-                            udt_syslog(LOG_ERR, "[UDT]: couldn't create socket...");
-                            udt_syslog(LOG_NOTICE, "[UDT]: exit because of error");
+                            udt_syslog(LOG_ERR, "couldn't create socket...");
+                            udt_syslog(LOG_NOTICE, "exit because of error");
                             exit(EXIT_FAILURE);
                         }
                             
@@ -138,30 +138,30 @@ void udt_packet_parse(udt_packet_t packet)
                 break;
 
             case PACKET_TYPE_KEEPALIVE:             // keep-alive
-                udt_syslog(LOG_INFO, "[UDT]: packet: keep-alive");
+                udt_syslog(LOG_INFO, "packet: keep-alive");
                 break;
 
             case PACKET_TYPE_ACK:                   // ack
-                udt_syslog(LOG_INFO, "[UDT]: packet: ack");
+                udt_syslog(LOG_INFO, "packet: ack");
                 if (packet_get_msgnum(packet) == connection.last_packet_number)
                     connection.is_in_wait = 0;
 
                 break;
 
             case PACKET_TYPE_NAK:                   // nak
-                udt_syslog(LOG_INFO, "[UDT]: packet: nak");
+                udt_syslog(LOG_INFO, "packet: nak");
                 break;
 
             case PACKET_TYPE_CONGDELAY:             // congestion-delay warn
-                udt_syslog(LOG_INFO, "[UDT]: packet: congestion-delay");
+                udt_syslog(LOG_INFO, "packet: congestion-delay");
                 break;
 
             case PACKET_TYPE_SHUTDOWN:              // shutdown
-                udt_syslog(LOG_INFO, "[UDT]: packet: shutdown");
+                udt_syslog(LOG_INFO, "packet: shutdown");
 
                 if (connection.is_connected == 0)
                 {
-                    udt_syslog(LOG_NOTICE, "[UDT]: unknown client tries to shutdown me");
+                    udt_syslog(LOG_NOTICE, "unknown client tries to shutdown me");
                     break;
                 }
 
@@ -175,24 +175,24 @@ void udt_packet_parse(udt_packet_t packet)
                 break;
 
             case PACKET_TYPE_ACK2:                  // ack of ack
-                udt_syslog(LOG_INFO, "[UDT]: packet: ack of ack");
+                udt_syslog(LOG_INFO, "packet: ack of ack");
                 break;
 
             case PACKET_TYPE_DROPREQ:               // message drop request
-                udt_syslog(LOG_INFO, "[UDT]: packet: drop request");
+                udt_syslog(LOG_INFO, "packet: drop request");
                 break;
 
             case PACKET_TYPE_ERRSIG:                // error signal
-                udt_syslog(LOG_INFO, "[UDT]: packet: error signal");
+                udt_syslog(LOG_INFO, "packet: error signal");
                 break;
 
             default:                                // unsupported packet type
-                udt_syslog(LOG_INFO, "[UDT]: packet: unknown");
+                udt_syslog(LOG_INFO, "packet: unknown");
         }
     }
     else // data packet
     {
-        udt_syslog(LOG_INFO, "[UDT]: packet: data");
+        udt_syslog(LOG_INFO, "packet: data");
 
         if (connection.is_connected == 1)
         {
@@ -250,7 +250,7 @@ void udt_packet_parse(udt_packet_t packet)
             udt_send_packet_buffer_write(&packet_ack);
         }
         else
-            udt_syslog(LOG_NOTICE, "[UDT]: packet: data was from unknown client");
+            udt_syslog(LOG_NOTICE, "packet: data was from unknown client");
     }
 
     return;
