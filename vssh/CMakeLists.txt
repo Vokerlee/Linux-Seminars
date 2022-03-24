@@ -35,16 +35,16 @@ add_compile_options(
 set(IPV4NET_LIB_NAME "ipv4net")
 
 set(IPV4NET_LIB_SRC
-    ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_buffer.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_buffer_ctl.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_core.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/net/udt/src/udt_packet.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/net/ipv4_net.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ipv4_net/udt/src/udt.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ipv4_net/udt/src/udt_buffer.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ipv4_net/udt/src/udt_buffer_ctl.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ipv4_net/udt/src/udt_core.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ipv4_net/udt/src/udt_packet.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/ipv4_net/ipv4_net.c
 )
 
 add_library(${IPV4NET_LIB_NAME} STATIC)
-target_include_directories(${IPV4NET_LIB_NAME} PRIVATE net/udt/src PRIVATE net/udt/include PRIVATE net utils)
+target_include_directories(${IPV4NET_LIB_NAME} PRIVATE ipv4_net/udt/src PRIVATE ipv4_net/udt/include PRIVATE ipv4_net utils)
 target_sources(${IPV4NET_LIB_NAME} PRIVATE ${IPV4NET_LIB_SRC})
 
 #########################################################################
@@ -53,10 +53,6 @@ target_sources(${IPV4NET_LIB_NAME} PRIVATE ${IPV4NET_LIB_SRC})
 
 set(SSH_SERVER_FILE_NAME "vsshd")
 set(SSH_CLIENT_FILE_NAME "vssh")
-
-set(HEADERS
-    ${CMAKE_CURRENT_SOURCE_DIR}/net/net.h
-)
 
 set(SSH_SERVER_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/vsshd/daemon/daemon.c
@@ -77,8 +73,8 @@ set(SSH_CLIENT_SOURCES
 add_executable(${SSH_SERVER_FILE_NAME} ${SSH_SERVER_SOURCES})
 add_executable(${SSH_CLIENT_FILE_NAME} ${SSH_CLIENT_SOURCES})
 
-target_include_directories(${SSH_SERVER_FILE_NAME} PRIVATE net PRIVATE utils PRIVATE net/udt/include vsshd/server vsshd/daemon)
-target_include_directories(${SSH_CLIENT_FILE_NAME} PRIVATE net PRIVATE utils PRIVATE net/udt/include)
+target_include_directories(${SSH_SERVER_FILE_NAME} PRIVATE net PRIVATE utils PRIVATE ipv4_net ipv4_net/udt/include vsshd/server vsshd/daemon)
+target_include_directories(${SSH_CLIENT_FILE_NAME} PRIVATE net PRIVATE utils PRIVATE ipv4_net ipv4_net/udt/include)
 
 target_link_libraries(${SSH_SERVER_FILE_NAME} ${IPV4NET_LIB_NAME})
 target_link_libraries(${SSH_CLIENT_FILE_NAME} ${IPV4NET_LIB_NAME})
