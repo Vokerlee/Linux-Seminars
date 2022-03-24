@@ -1,7 +1,7 @@
 #ifndef IPV4_NET_H_
 #define IPV4_NET_H_
 
-// General
+// General libs
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
@@ -11,16 +11,15 @@
 #include <sysexits.h>
 #include <err.h>
 
-// Sockets
+// Sockets libs
 #include <sys/socket.h>
 #include <sys/un.h>
-
-// IP
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 
-// Others
+// Others libs
+#define _UNIX03_THREADS
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -28,13 +27,17 @@
 #include "ipv4_net_config.h"
 #include "udt.h"
 
+// IPv4 control message parameters
 #define IPV4_SPARE_FIELDS 64
 #define IPV4_SPARE_BUFFER_LENGTH 256
 
+// IPv4 control message types
 #define IPV4_MSG_HEADER_TYPE  1UL
 #define IPV4_FILE_HEADER_TYPE 2UL
 #define IPV4_SHUTDOWN_TYPE    3UL
 #define IPV4_BROADCAST_TYPE   4UL
+
+// IPv4 control message structure
 
 typedef struct
 {
@@ -47,6 +50,8 @@ typedef struct
         char     spare_buffer[IPV4_SPARE_BUFFER_LENGTH];
     };
 } ipv4_ctl_message;
+
+// IPv4 library function declarations
 
 int ipv4_socket(int type, int optname);
 

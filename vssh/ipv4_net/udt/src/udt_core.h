@@ -3,6 +3,13 @@
 
 #include "ipv4_net_config.h"
 #include <string.h>
+#include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+#include <errno.h>
 
 typedef struct
 {

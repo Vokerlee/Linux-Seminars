@@ -1,5 +1,3 @@
-#include "ipv4_net_config.h"
-#include "ipv4_net.h"
 #include "udt_core.h"
 #include "udt_packet.h"
 #include "udt_buffer.h"
@@ -171,17 +169,8 @@ void *udt_receiver_start(void *arg)
             continue;
         }
 
-        if (((ipv4_ctl_message *) &packet)->message_type == IPV4_BROADCAST_TYPE)
-        {
-            udt_syslog(LOG_INFO, "packet: broadcast request");
-            const char respond_message[PACKET_DATA_SIZE] = {0};
-
-            ssize_t sent_bytes = sendto(connection.socket_fd, respond_message, PACKET_DATA_SIZE, 0, (struct sockaddr *) &connection.addr, connection.addrlen);
-            if (sent_bytes == -1 || sent_bytes != sizeof(respond_message))
-                udt_syslog(LOG_ERR, "cannot respond to broadcast request");
-
+        if (udt_handle_request_packet(&packet) != 0)
             continue;
-        }
 
         udt_packet_parse(packet);
     }

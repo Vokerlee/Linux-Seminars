@@ -1,9 +1,4 @@
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include "ipv4_net.h"
-#include "ipv4_net_config.h"
 #include "udt_packet.h"
 #include "udt_buffer.h"
 #include "udt_core.h"
@@ -88,7 +83,24 @@ ssize_t udt_packet_new_handshake(udt_packet_t *packet)
     return udt_packet_new(packet, buffer, sizeof(buffer));
 }
 
-void udt_packet_parse(udt_packet_t packet)
+int udt_handle_request_packet(udt_packet_t *packet)
+{
+    if (((ipv4_ctl_message *) &packet)->message_type == IPV4_BROADCAST_TYPE)
+    {
+        udt_syslog(LOG_INFO, "packet: broadcast request");
+        const char respond_message[PACKET_DATA_SIZE] = {0};
+
+        ssize_t sent_bytes = sendto(connection.socket_fd, respond_message, PACKET_DATA_SIZE, 0, (struct sockaddr *) &connection.addr, connection.addrlen);
+        if (sent_bytes == -1 || sent_bytes != sizeof(respond_message))
+            udt_syslog(LOG_ERR, "cannot respond to broadcast request");
+
+        return IPV4_BROADCAST_TYPE;
+    }
+
+    return 0;
+}
+
+int udt_packet_parse(udt_packet_t packet)
 {
     udt_packet_deserialize(&packet);
 
@@ -103,16 +115,19 @@ void udt_packet_parse(udt_packet_t packet)
                 {
                     pthread_cond_signal(&handshake_cond);
                     udt_handshake_terminate();
+
+                    return 0;
                 }
                 else if (connection.is_connected == 0) // server
                 {
                     udt_syslog(LOG_INFO, "create new process for client...");
 
                     int fork_value = fork();
-                    if (fork_value == -1)
+                    if (fork_value == -1) // error
                     {
                         udt_syslog(LOG_ERR, "error in fork() while creating process for client...");
-                        return;
+
+                        return PACKET_SYSTEM_ERROR;
                     }
                     else if (fork_value == 0) // child
                     {
@@ -132,29 +147,31 @@ void udt_packet_parse(udt_packet_t packet)
                         udt_packet_new_handshake(&packet);
                         udt_send_packet_buffer_write(&packet);
                         udt_handshake_terminate();
+
+                        return 0;
                     }
                 }
 
-                break;
+                return 0;
 
             case PACKET_TYPE_KEEPALIVE:             // keep-alive
                 udt_syslog(LOG_INFO, "packet: keep-alive");
-                break;
+                return 0;
 
             case PACKET_TYPE_ACK:                   // ack
                 udt_syslog(LOG_INFO, "packet: ack");
                 if (packet_get_msgnum(packet) == connection.last_packet_number)
                     connection.is_in_wait = 0;
 
-                break;
+                return 0;
 
             case PACKET_TYPE_NAK:                   // nak
                 udt_syslog(LOG_INFO, "packet: nak");
-                break;
+                return 0;
 
             case PACKET_TYPE_CONGDELAY:             // congestion-delay warn
                 udt_syslog(LOG_INFO, "packet: congestion-delay");
-                break;
+                return 0;
 
             case PACKET_TYPE_SHUTDOWN:              // shutdown
                 udt_syslog(LOG_INFO, "packet: shutdown");
@@ -162,7 +179,7 @@ void udt_packet_parse(udt_packet_t packet)
                 if (connection.is_connected == 0)
                 {
                     udt_syslog(LOG_NOTICE, "unknown client tries to shutdown me");
-                    break;
+                    return PACKET_UNKNOWN_CLIENT_ERROR;
                 }
 
                 connection.is_connected = 0;
@@ -172,22 +189,23 @@ void udt_packet_parse(udt_packet_t packet)
                     exit(EXIT_SUCCESS);
                 }
                     
-                break;
+                return 0;
 
             case PACKET_TYPE_ACK2:                  // ack of ack
                 udt_syslog(LOG_INFO, "packet: ack of ack");
-                break;
+                return 0;
 
             case PACKET_TYPE_DROPREQ:               // message drop request
                 udt_syslog(LOG_INFO, "packet: drop request");
-                break;
+                return 0;
 
             case PACKET_TYPE_ERRSIG:                // error signal
                 udt_syslog(LOG_INFO, "packet: error signal");
-                break;
+                return 0;
 
             default:                                // unsupported packet type
                 udt_syslog(LOG_INFO, "packet: unknown");
+                return PACKET_UNKNOWN_TYPE_ERROR;
         }
     }
     else // data packet
@@ -210,7 +228,10 @@ void udt_packet_parse(udt_packet_t packet)
                     connection.last_packet_number = 0;
                 }
                 else
-                    return;
+                {
+                    udt_syslog(LOG_INFO, "received packet doesn't correspond expectable message number");
+                    return PACKET_INVALID_MSGNUM_ERROR;
+                }
             }
                 
             else if (packet.header._head1 & 0x80000000) // first packet
@@ -233,7 +254,10 @@ void udt_packet_parse(udt_packet_t packet)
                     connection.last_packet_number++;
                 }
                 else
-                    return;
+                {
+                    udt_syslog(LOG_INFO, "received packet doesn't correspond expectable message number");
+                    return PACKET_INVALID_MSGNUM_ERROR;
+                }
             } 
 
             udt_packet_t packet_ack;
@@ -250,8 +274,11 @@ void udt_packet_parse(udt_packet_t packet)
             udt_send_packet_buffer_write(&packet_ack);
         }
         else
+        {
             udt_syslog(LOG_NOTICE, "packet: data was from unknown client");
+            return PACKET_UNKNOWN_CLIENT_ERROR;
+        }
     }
 
-    return;
+    return 0;
 }

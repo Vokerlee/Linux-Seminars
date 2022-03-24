@@ -1,8 +1,12 @@
 #ifndef UDT_BUFFER_H_
 #define UDT_BUFFER_H_
 
-#include <pthread.h>
+#define _UNIX03_THREADS
+
 #include "udt_packet.h"
+#include <pthread.h>
+#include <stdlib.h>
+#include <sys/types.h>
 
 typedef struct _udt_block udt_block_t;
 struct _udt_block

@@ -13,7 +13,7 @@ int vssh_handle_arguments(int argc, char *argv[])
     {
         fprintf(stderr, "\033[0;34m"); // green
         fprintf(stderr, "Usage: vssh [OPTION]\n"
-                "Options:\n");
+                        "Options:\n");
 
         fprintf(stderr, "\t-h, --help%n", &indent);
         fprintf(stderr, "%*sPrint help information (you are here now)\n", INFO_INDENT - indent, " ");
@@ -29,7 +29,11 @@ int vssh_handle_arguments(int argc, char *argv[])
         else if (strcmp(argv[2], "--udp") == 0)
             return vssh_send_message(inet_addr(argv[3]), argv[4], strlen(argv[4]), SOCK_STREAM_UDT);
         else
-            return vssh_send_message(inet_addr(argv[2]), argv[3], strlen(argv[3]), SOCK_STREAM);
+        {
+            fprintf(stderr, "Error: no --tcp or --udp\n"
+                            "See --help option");
+            return -1;
+        }    
     }
     else if (strcmp(argv[1], "--terminate") == 0 || strcmp(argv[1], "-t") == 0)
     {

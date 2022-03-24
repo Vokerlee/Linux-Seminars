@@ -1,7 +1,5 @@
 #include "server.h"
 
-static pthread_mutex_t SERVER_SOCKETS_HANDLER_MUTEX = PTHREAD_MUTEX_INITIALIZER;
-
 void *tcp_server_handler(void *connection_socket)
 {
     int socket_fd = (int) connection_socket;

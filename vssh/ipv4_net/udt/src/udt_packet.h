@@ -2,6 +2,10 @@
 #define UDT_PACKET_H_
 
 #include "ipv4_net_config.h"
+#include <stdlib.h>
+#include <sys/types.h>
+#include <arpa/inet.h>
+#include <string.h>
 
 #define PACKET_HEADER_SIZE 6
 
@@ -23,6 +27,11 @@
 #define PACKET_BOUNDARY_END   1
 #define PACKET_BOUNDARY_START 2
 #define PACKET_BOUNDARY_SOLO  3
+
+#define PACKET_SYSTEM_ERROR         -1
+#define PACKET_INVALID_MSGNUM_ERROR  1
+#define PACKET_UNKNOWN_TYPE_ERROR    2
+#define PACKET_UNKNOWN_CLIENT_ERROR  3
 
 #define packet_is_control(packet)                 \
     ((packet).header._head0 & PACKET_MASK_CTRL)
@@ -88,6 +97,7 @@
  *   ack_sequence_number
  *   time_stamp
  */
+
 typedef struct
 {
     union
@@ -133,11 +143,12 @@ typedef struct
     char                data[PACKET_DATA_SIZE];
 } udt_packet_t;
 
-void udt_packet_deserialize(udt_packet_t *packet);
-void udt_packet_serialize  (udt_packet_t *packet);
+void udt_packet_deserialize      (udt_packet_t *packet);
+void udt_packet_serialize        (udt_packet_t *packet);
 
-ssize_t udt_packet_new          (udt_packet_t *packet, const void *buffer, size_t len);
-ssize_t udt_packet_new_handshake(udt_packet_t *packet);
-void    udt_packet_parse        (udt_packet_t  packet);
+ssize_t udt_packet_new           (udt_packet_t *packet, const void *buffer, size_t len);
+ssize_t udt_packet_new_handshake (udt_packet_t *packet);
+int     udt_handle_request_packet(udt_packet_t *packet);
+int     udt_packet_parse         (udt_packet_t  packet);
 
 #endif // !UDT_PACKET_H_
