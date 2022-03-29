@@ -1,6 +1,8 @@
 #ifndef IPV4_NET_H_
 #define IPV4_NET_H_
 
+#define _GNU_SOURCE
+
 // General libs
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,10 +34,11 @@
 #define IPV4_SPARE_BUFFER_LENGTH 256
 
 // IPv4 control message types
-#define IPV4_MSG_HEADER_TYPE  1UL
-#define IPV4_FILE_HEADER_TYPE 2UL
-#define IPV4_SHUTDOWN_TYPE    3UL
-#define IPV4_BROADCAST_TYPE   4UL
+#define IPV4_MSG_HEADER_TYPE    1UL
+#define IPV4_FILE_HEADER_TYPE   2UL
+#define IPV4_SHUTDOWN_TYPE      3UL
+#define IPV4_BROADCAST_TYPE     4UL
+#define IPV4_SHELL_REQUEST_TYPE 5UL
 
 // IPv4 control message structure
 

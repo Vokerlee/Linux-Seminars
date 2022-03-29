@@ -3,6 +3,9 @@
 #include "udt_buffer.h"
 #include "udt_utils.h"
 
+#define _GNU_SOURCE
+#include <unistd.h>
+
 udt_conn_t connection = {0};
 
 pthread_mutex_t handshake_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -57,6 +60,9 @@ void udt_connection_close()
 
 void udt_prepare_to_fork()
 {
+    if (connection.is_main_server != 1)
+        return;
+
     pthread_mutex_init(&handshake_mutex, NULL);
     pthread_cond_init (&handshake_cond,  NULL);
 
@@ -67,6 +73,9 @@ void udt_prepare_to_fork()
 
 void udt_child_after_fork()
 {
+    if (connection.is_main_server != 1)
+        return;
+
     connection.is_main_server = 0;
     memset(&connection.last_addr, 0, sizeof(connection.last_addr));
     connection.last_packet_number = 0;
@@ -92,8 +101,8 @@ void *udt_sender_start(void *arg)
 
     while (udt_send_packet_buffer_read(&packet))
     {
-        ssize_t n_sent_bytes = sendto(conn->socket_fd, &packet, sizeof(udt_packet_t), 0,
-                                      (struct sockaddr *) &(conn->addr), sizeof(struct sockaddr));
+        ssize_t n_sent_bytes = sendto(connection.socket_fd, &packet, sizeof(udt_packet_t), 0,
+                                      (struct sockaddr *) &(connection.addr), sizeof(struct sockaddr));
         if (n_sent_bytes == -1)
             udt_syslog(LOG_ERR, "sendto() error: %s", strerror(errno));
 
@@ -111,35 +120,33 @@ void *udt_receiver_start(void *arg)
 
     udt_syslog(LOG_INFO, "receiver-thread is ready to receive packets");
 
-    udt_conn_t *conn = (udt_conn_t *) arg;
     udt_packet_t packet;
-
     memset(&packet, 0, sizeof(udt_packet_t));
 
     while (1)
     {
-        int recv_error = recvfrom(conn->socket_fd, &packet, sizeof(udt_packet_t), 0,
-                                  (struct sockaddr *) &(conn->last_addr), &(conn->addrlen));
+        int recv_error = recvfrom(connection.socket_fd, &packet, sizeof(udt_packet_t), 0,
+                                  (struct sockaddr *) &(connection.last_addr), &(connection.addrlen));
 
         if (recv_error == -1 && errno == EAGAIN)
         {
-            if (conn->is_in_wait == 1) // send packet
+            if (connection.is_in_wait == 1) // send packet
             {
-                conn->no_ack = 1;
-                conn->is_in_wait = 0;
+                connection.no_ack = 1;
+                connection.is_in_wait = 0;
             }
-            else if (conn->is_connected == 1) // already connected
+            else if (connection.is_connected == 1) // already connected
             {
-                conn->is_connected = 0;
-                conn->is_in_wait   = 0;
-                conn->addr.sin_addr.s_addr = 0;
+                connection.is_connected = 0;
+                connection.is_in_wait   = 0;
+                connection.addr.sin_addr.s_addr = 0;
                 udt_syslog(LOG_NOTICE, "disconnection has occured from client: IP = %s, port = %d", 
-                           inet_ntoa(conn->addr.sin_addr), (int) ntohs(conn->addr.sin_port));
+                           inet_ntoa(connection.addr.sin_addr), (int) ntohs(connection.addr.sin_port));
 
                 pthread_cond_signal(&(RECV_BUFFER.cond));
 
                 struct timeval tv = {.tv_sec = 0, .tv_usec = 0};    
-                setsockopt(conn->socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
+                setsockopt(connection.socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
 
                 if (connection.is_client == 0)
                 {
@@ -159,11 +166,11 @@ void *udt_receiver_start(void *arg)
             continue;
         }
 
-        udt_syslog(LOG_INFO, "message from IP = %s, port = %d\n", inet_ntoa(conn->last_addr.sin_addr), (int) ntohs(conn->last_addr.sin_port));
+        udt_syslog(LOG_INFO, "message from IP = %s, port = %d\n", inet_ntoa(connection.last_addr.sin_addr), (int) ntohs(connection.last_addr.sin_port));
 
-        if (conn->is_connected == 0)
-            conn->addr = conn->last_addr;
-        else if (conn->last_addr.sin_addr.s_addr != conn->addr.sin_addr.s_addr || conn->last_addr.sin_port != conn->addr.sin_port)
+        if (connection.is_connected == 0)
+            connection.addr = connection.last_addr;
+        else if (connection.last_addr.sin_addr.s_addr != connection.addr.sin_addr.s_addr || connection.last_addr.sin_port != connection.addr.sin_port)
         {
             udt_syslog(LOG_ERR, "message from unknown source");
             continue;

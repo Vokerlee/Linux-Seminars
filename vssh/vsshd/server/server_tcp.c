@@ -18,7 +18,7 @@ void *tcp_server_handler(void *connection_socket)
             {
                 case IPV4_SHUTDOWN_TYPE: // only in TCP
                 {
-                    ipv4_tcp_syslog(LOG_INFO, "successfully finish job and exit");
+                    ipv4_tcp_syslog(LOG_NOTICE, "successfully finish job and exit");
 
                     void *retval = 0;
                     pthread_exit(retval);
@@ -31,6 +31,14 @@ void *tcp_server_handler(void *connection_socket)
                         ipv4_tcp_syslog(LOG_ERR, "couldn't receive message after getting msg header");
 
                     ipv4_tcp_syslog(LOG_INFO, "get message:\n%s", message);
+
+                    break;
+                }
+
+                case IPV4_SHELL_REQUEST_TYPE:
+                {
+                    ipv4_tcp_syslog(LOG_INFO, "get shell request");
+                    handle_terminal_request(socket_fd, SOCK_STREAM);
 
                     break;
                 }

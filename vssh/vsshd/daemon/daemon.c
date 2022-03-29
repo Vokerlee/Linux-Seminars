@@ -35,7 +35,7 @@ int become_daemon(int flags)
     if (!(flags & BD_NO_UMASK0))    
         umask(0); // clear file mode creation mask
 
-    if (!(flags & BD_NO_CHDIR)) 
+    if (!(flags & BD_NO_CHDIR))
     {
         errno = 0;
         int error = chdir("/"); // change to root directory

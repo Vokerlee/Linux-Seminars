@@ -18,23 +18,6 @@ int vssh_handle_arguments(int argc, char *argv[])
         fprintf(stderr, "\t-h, --help%n", &indent);
         fprintf(stderr, "%*sPrint help information (you are here now)\n", INFO_INDENT - indent, " ");
     }
-    else if (strcmp(argv[1], "--msg") == 0 || strcmp(argv[1], "-m") == 0)
-    {
-        if (argc == 2)
-            errx(EX_USAGE, "Error: too few arguments\n"
-                           "See --help option");
-
-        if (strcmp(argv[2], "--tcp") == 0)
-            return vssh_send_message(inet_addr(argv[3]), argv[4], strlen(argv[4]), SOCK_STREAM);
-        else if (strcmp(argv[2], "--udp") == 0)
-            return vssh_send_message(inet_addr(argv[3]), argv[4], strlen(argv[4]), SOCK_STREAM_UDT);
-        else
-        {
-            fprintf(stderr, "Error: no --tcp or --udp\n"
-                            "See --help option");
-            return -1;
-        }    
-    }
     else if (strcmp(argv[1], "--terminate") == 0 || strcmp(argv[1], "-t") == 0)
     {
         int fd = open(VSSHD_PID_FILE_NAME, O_RDONLY);
@@ -73,19 +56,53 @@ int vssh_handle_arguments(int argc, char *argv[])
     }
     else if (strcmp(argv[1], "--broadcast") == 0 || strcmp(argv[1], "-br") == 0)
     {
-        if (argc == 2)
-            errx(EX_USAGE, "Error: too few arguments\n"
-                           "See --help option");
-
-        int broadcast_state = vssh_send_broadcast(inet_addr(argv[2]));
+        int broadcast_state = vssh_send_broadcast_request();
         if (broadcast_state == -1)
         {
             fprintf(stderr, "broadcast error\n");
             exit(EXIT_FAILURE);
         }
-    }   
+    }
     else
-        return -1;
+    {
+        if (argc < 3)
+            errx(EX_USAGE, "Error: too few arguments\n"
+                           "See --help option");
+
+        int connection_type = 0;
+
+        if (strcmp(argv[2], "--tcp") == 0)
+            connection_type = SOCK_STREAM;
+        else if (strcmp(argv[2], "--udp") == 0)
+            connection_type = SOCK_STREAM_UDT;
+        else
+        {
+            fprintf(stderr, "Error: no --tcp or --udp\n"
+                            "See --help option");
+            return -1;
+        }
+
+        in_addr_t ip_addr_dest = inet_addr(argv[3]);
+        if (ip_addr_dest == 0)
+        {
+            fprintf(stderr, "Error: invalid destination IP address, check it\n"
+                            "See --help option");
+            return -1;
+        }
+
+        if (strcmp(argv[1], "--msg") == 0 || strcmp(argv[1], "-m") == 0)
+        {
+            if (argc < 5)
+                errx(EX_USAGE, "Error: too few arguments\n"
+                               "See --help option");
+
+            return vssh_send_message(ip_addr_dest, argv[4], strlen(argv[4]), connection_type);
+        }   
+        else if (strcmp(argv[1], "--shell") == 0 || strcmp(argv[1], "-sh") == 0)
+            return vssh_shell_request(ip_addr_dest, connection_type);
+        else
+            return -1;
+    }
 
     return 0;
 }

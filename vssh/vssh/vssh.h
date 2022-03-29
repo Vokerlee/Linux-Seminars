@@ -1,5 +1,5 @@
-#ifndef SSH_CLIENT_H_
-#define SSH_CLIENT_H_
+#ifndef VSSH_CLIENT_H_
+#define VSSH_CLIENT_H_
 
 #include "ipv4_net.h"
 #include <syslog.h>
@@ -13,6 +13,7 @@
 
 int vssh_handle_arguments(int argc, char *argv[]);
 int vssh_send_message    (in_addr_t dest_ip, const char *message, size_t len, int connection_type);
-int vssh_send_broadcast  (in_addr_t dest_ip);
+int vssh_send_broadcast_request();
+int vssh_shell_request(in_addr_t dest_ip, int connection_type);
 
-#endif // !SSH_CLIENT_H_
+#endif // !VSSH_CLIENT_H_

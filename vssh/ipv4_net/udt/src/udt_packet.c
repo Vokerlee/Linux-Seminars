@@ -185,7 +185,7 @@ int udt_packet_parse(udt_packet_t packet)
                 connection.is_connected = 0;
                 if (connection.is_client == 0) // server
                 {
-                    udt_syslog(LOG_INFO, "[IPv4 UDT]: successfully finish job and exit");
+                    udt_syslog(LOG_NOTICE, "successfully finish job and exit");
                     exit(EXIT_SUCCESS);
                 }
                     

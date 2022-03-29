@@ -25,6 +25,13 @@
     #define ipv4_udt_syslog(priority, fmt, ...)
 #endif // !_IPV4_UDT_LOG_
 
+#ifdef _IPV4_LOG_
+    #define ipv4_syslog(priority, fmt, ...) \
+        syslog(priority, fmt, ##__VA_ARGS__)
+#else
+    #define ipv4_syslog(priority, fmt, ...)
+#endif // !_IPV4_LOG_
+
 #define SSH_SERVER_PORT 16161
 
 int launch_vssh_tcp_server(in_addr_t ip);
@@ -32,5 +39,7 @@ void *tcp_server_handler(void *connection_socket);
 
 int launch_vssh_udp_server(in_addr_t ip);
 void *udt_server_handler(void *connection_socket);
+
+int handle_terminal_request(int socket_fd, int connection_type);
 
 #endif // !SERVER_H_

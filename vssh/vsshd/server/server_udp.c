@@ -22,7 +22,16 @@ void *udt_server_handler(void *connection_socket)
                     if (recv_bytes == -1 || recv_bytes == 0)
                         ipv4_udt_syslog(LOG_ERR, "couldn't receive message after getting msg header");
 
-                    ipv4_udt_syslog(LOG_INFO, "get message:\n%s", message);
+                    ipv4_udt_syslog(LOG_INFO, "message length: %zu", recv_bytes);
+                    ipv4_udt_syslog(LOG_INFO, "get message: %s", message);
+
+                    break;
+                }
+
+                case IPV4_SHELL_REQUEST_TYPE:
+                {
+                    ipv4_udt_syslog(LOG_INFO, "get shell request");
+                    handle_terminal_request(socket_fd, SOCK_STREAM_UDT);
 
                     break;
                 }
