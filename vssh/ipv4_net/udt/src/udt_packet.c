@@ -85,7 +85,7 @@ ssize_t udt_packet_new_handshake(udt_packet_t *packet)
 
 int udt_handle_request_packet(udt_packet_t *packet)
 {
-    if (((ipv4_ctl_message *) &packet)->message_type == IPV4_BROADCAST_TYPE)
+    if (((ipv4_ctl_message *) packet)->message_type == IPV4_BROADCAST_TYPE)
     {
         udt_syslog(LOG_INFO, "packet: broadcast request");
         const char respond_message[PACKET_DATA_SIZE] = {0};
