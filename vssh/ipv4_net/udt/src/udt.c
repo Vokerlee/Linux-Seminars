@@ -166,46 +166,6 @@ int udt_close(int socket_fd)
     return close(socket_fd);
 }
 
-ssize_t udt_recvfile(int socket_fd, int fd, off_t *offset, ssize_t filesize)
-{
-    if (offset == NULL)
-        return -1;
-
-    if (connection.is_connected == 0 && connection.is_client == 1)
-        return -1;
-
-    ssize_t received_bytes = udt_recv_file_buffer_read(fd, offset, filesize);
-    if (connection.is_connected == 0 && connection.is_client == 1)
-    {
-        pthread_cancel(connection.recv_thread);
-        pthread_cancel(connection.send_thread);
-
-        memset(&connection, 0, sizeof(connection));
-
-        return -1;
-    }
-
-    return received_bytes;
-}
-
-ssize_t udt_sendfile(int socket_fd, int fd, off_t offset, ssize_t filesize)
-{
-    if (connection.is_connected == 0)
-        return -1;
-
-    struct timeval old_tv;
-    socklen_t optlen;
-    getsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &old_tv, &optlen);
-
-    struct timeval new_tv = {.tv_sec = UDT_SECONDS_TIMEOUT_SEND, .tv_usec = UDT_USECONDS_TIMEOUT_SEND};
-    setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &new_tv, sizeof(struct timeval));
-
-    ssize_t sent_bytes = udt_send_file_buffer_write(fd, offset, filesize);
-    setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &old_tv, sizeof(struct timeval));
-        
-    return sent_bytes;
-}
-
 void udt_set_server_handler(void *(*server_handler)(void *))
 {
     memset(&connection, 0, sizeof(connection));
