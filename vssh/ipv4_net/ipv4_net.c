@@ -149,182 +149,142 @@ ssize_t ipv4_receive_message(int socket_fd, void *buffer, size_t n_bytes, int co
         return -1;
 }
 
-// ssize_t ipv4_send_file(int type, int socket_fd, int file_fd, const char* file_name)
-// {
-//     if (type == SOCK_STREAM)
-//         return ipv4_send_file_tcp(socket_fd, file_fd, file_name);
-//     else if (type == SOCK_DGRAM)
-//         return ipv4_send_file_udp(socket_fd, file_fd, file_name);
-//     else
-//         return -1;
-// }
+ssize_t ipv4_send_buffer(int socket_fd, const void *buffer, size_t n_bytes, int connection_type)
+{
+    if (buffer == NULL)
+        return -1;
 
-// ssize_t ipv4_receive_file(int type, int socket_fd, pthread_mutex_t *sync_mutex)
-// {
-//     if (type == SOCK_STREAM)
-//         return ipv4_receive_file_tcp(socket_fd, sync_mutex);
-//     else if (type == SOCK_DGRAM)
-//         return ipv4_receive_file_udp(socket_fd, sync_mutex);
-//     else
-//         return -1;
-// }
+    if (connection_type != SOCK_STREAM && connection_type != SOCK_DGRAM && connection_type != SOCK_STREAM_UDT)
+        return -1;
 
-// ssize_t ipv4_send_file_tcp(int socket_fd, int file_fd, const char* file_name)
-// {   
-//     int saved_errno = errno;
+    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_BUF_HEADER_TYPE, n_bytes, NULL, 0, NULL, 0, connection_type);
+    if (ctl_msg_state == -1)
+        return -1;
 
-//     off_t file_size = get_file_size(file_fd);
-//     if (file_size == -1)
-//         return -1;
+    ssize_t n_sent_bytes = 0;
+    size_t n_iters = n_bytes / PACKET_DATA_SIZE;
+    size_t n_remaining_bytes = n_bytes % PACKET_DATA_SIZE;
 
-//     size_t n_iters = file_size / PACKET_DATA_SIZE; // iterations to send the whole file
-//     if (file_size % PACKET_DATA_SIZE != 0)
-//         n_iters++;
+    const char *cur_pos = buffer;
 
-//     char message[PACKET_DATA_SIZE] = {0};
+    for (size_t i = 0; i < n_iters; ++i)
+    {
+        ssize_t n_bytes = 0;
+        if (connection_type == SOCK_STREAM_UDT)
+            n_bytes = udt_send(socket_fd, cur_pos, PACKET_DATA_SIZE);
+        else
+            n_bytes = send(socket_fd, cur_pos, PACKET_DATA_SIZE, 0);
 
-//     *((size_t *) message)     = file_size;
-//     *((size_t *) message + 1) = n_iters;
-//     *((size_t *) message + 2) = strlen(file_name);
-//     strncpy((char *)((size_t *) message + 3), file_name, N_MAX_FILENAME_LEN);
+        if (n_bytes <= 0)
+            return -1;
 
-//     ssize_t sent_hdr_bytes = write(socket_fd, message, HDR_MSG_LEN);
-//     if (sent_hdr_bytes == -1 || sent_hdr_bytes != HDR_MSG_LEN)
-//     {
-//         perror("write()");
-//         return -1;
-//     }
+        n_sent_bytes += n_bytes;
+        cur_pos      += n_bytes;
+    }
 
-//     // Sending the file
+    if (n_remaining_bytes > 0)
+    {
+        ssize_t n_bytes = 0;
+        if (connection_type == SOCK_STREAM_UDT)
+            n_bytes = udt_send(socket_fd, cur_pos, PACKET_DATA_SIZE);
+        else
+            n_bytes = send(socket_fd, cur_pos, PACKET_DATA_SIZE, 0);
 
-//     for (size_t i = 0; i < n_iters - 1; i++)
-//     {
-//         int read_error = read(file_fd, message, PACKET_DATA_SIZE);
-//         if (read_error == -1)
-//         {
-//             perror("read()");
-//             return -1;
-//         }
+        if (n_bytes <= 0)
+            return -1;
 
-//         ssize_t sent_bytes = write(socket_fd, message, PACKET_DATA_SIZE);
-//         if (sent_bytes == -1 || sent_bytes != PACKET_DATA_SIZE)
-//         {
-//             perror("write()");
-//             return -1;
-//         }
-//     }
+        n_sent_bytes += n_bytes;
+    }
 
-//     memset(message, 0, sizeof(message));
+    return n_sent_bytes;
+}
 
-//     int read_error = read(file_fd, message, file_size % PACKET_DATA_SIZE);
-//     if (read_error == -1)
-//     {
-//         perror("read()");
-//         return -1;
-//     }
+ssize_t ipv4_receive_buffer(int socket_fd, void *buffer, size_t n_bytes, int connection_type)
+{
+    if (buffer == NULL)
+        return -1;
 
-//     ssize_t sent_bytes = write(socket_fd, message, file_size % PACKET_DATA_SIZE);
-//     if (sent_bytes == -1 || sent_bytes != file_size % PACKET_DATA_SIZE)
-//     {
-//         perror("write()");
-//         close(socket_fd);
-//         errx(EX_OSERR, "write() error");
-//     }
+    if (connection_type != SOCK_STREAM && connection_type != SOCK_DGRAM && connection_type != SOCK_STREAM_UDT)
+        return -1;
 
-//     errno = saved_errno;
+    ssize_t n_recv_bytes = 0;
+    size_t n_iters = n_bytes / PACKET_DATA_SIZE;
+    size_t n_remaining_bytes = n_bytes % PACKET_DATA_SIZE;
 
-//     return sent_hdr_bytes + n_iters * PACKET_DATA_SIZE;
-// }
+    char *cur_pos = buffer;
 
-// ssize_t ipv4_send_file_udp(int socket_fd, int file_fd, const char* file_name)
-// {
-//     return 0;
-// }
+    for (size_t i = 0; i < n_iters; ++i)
+    {
+        ssize_t n_bytes = 0;
+        if (connection_type == SOCK_STREAM_UDT)
+            n_bytes = udt_recv(socket_fd, cur_pos, PACKET_DATA_SIZE);
+        else
+            n_bytes = read(socket_fd, cur_pos, PACKET_DATA_SIZE);
 
-// ssize_t ipv4_receive_file_tcp(int socket_fd, pthread_mutex_t *sync_mutex)
-// {
-//     char message[PACKET_DATA_SIZE] = {0};
-//     char file_name[N_MAX_FILENAME_LEN] = {0};
+        if (n_bytes <= 0)
+            return -1;
 
-//     if (read(socket_fd, message, HDR_MSG_LEN) == -1)
-//     {
-//         perror("read()");
-//         return -1;
-//     }
+        n_recv_bytes += n_bytes;
+        cur_pos      += n_bytes;
+    }
 
-//     size_t file_size     = *((size_t *) message);
-//     size_t n_iters       = *((size_t *) message + 1);
-//     size_t filename_size = *((size_t *) message + 2);
-//     strncpy(file_name, (char *)((size_t *) message + 3), N_MAX_FILENAME_LEN);
+    if (n_remaining_bytes > 0)
+    {
+        ssize_t n_bytes = 0;
+        if (connection_type == SOCK_STREAM_UDT)
+            n_bytes = udt_recv(socket_fd, cur_pos, PACKET_DATA_SIZE);
+        else
+            n_bytes = read(socket_fd, cur_pos, PACKET_DATA_SIZE);
 
-//     if (sync_mutex)
-//     {
-//         int mutex_error = pthread_mutex_lock(sync_mutex);
-//         if (mutex_error != -1)
-//         {
-//             printf("File information:\n");
-//             printf("\tsize       = %zu\n", file_size);
-//             printf("\titerations = %zu\n", n_iters);
-//             printf("\tname size  = %zu\n", filename_size);
-//             printf("\tname       = %s\n",  file_name);
-//             printf("==================================================\n");
+        if (n_bytes <= 0)
+            return -1;
 
-//             pthread_mutex_unlock(sync_mutex);
-//         }
-//         else
-//             perror("pthread_mutex_unlock()");
-//     }
+        n_recv_bytes += n_bytes;
+    }
 
-//     int file_fd = open(file_name, O_WRONLY | O_CREAT, 0666);
-//     if (file_fd == -1)
-//     {
-//         perror("open()");
-//         exit(EXIT_FAILURE);
-//     }
+    return n_recv_bytes;
+}
 
-//     for (size_t i = 0; i < n_iters - 1; i++)
-//     {
-//         int read_error = read(socket_fd, message, PACKET_DATA_SIZE);
-//         if (read_error == -1)
-//         {
-//             perror("read()");
-//             close(file_fd);
-//             return -1;
-//         }
+ssize_t ipv4_send_file(int socket_fd, int file_fd, int connection_type)
+{
+    off_t file_size = get_file_size(file_fd);
 
-//         ssize_t written_bytes = write(file_fd, message, PACKET_DATA_SIZE);
-//         if (written_bytes == -1 || written_bytes != PACKET_DATA_SIZE)
-//         {
-//             perror("write()");
-//             close(file_fd);
-//             return -1;
-//         }
-//     }
+    char *buffer = malloc(file_size + 1);
+    if (buffer == NULL)
+        return -1;
 
-//     memset(message, 0, sizeof(message));
+    buffer[file_size + 1] = 0;
 
-//     int read_error = read(socket_fd, message, file_size % PACKET_DATA_SIZE);
-//     if (read_error == -1)
-//     {
-//         perror("read()");
-//         close(file_fd);
-//         return -1;
-//     }
+    ssize_t read_error = read(file_fd, buffer, file_size);
+    if (read_error == -1)
+        return -1;
 
-//     ssize_t sent_bytes = write(file_fd, message, file_size % PACKET_DATA_SIZE);
-//     if (sent_bytes == -1 || sent_bytes != file_size % PACKET_DATA_SIZE)
-//     {
-//         perror("write()");
-//         close(file_fd);
-//         return -1;
-//     }
+    ssize_t sent_bytes = ipv4_send_buffer(socket_fd, buffer, file_size, connection_type);
+    if (sent_bytes == -1)
+        return -1;
 
-//     close(file_fd);
+    free(buffer);
 
-//     return HDR_MSG_LEN + n_iters * PACKET_DATA_SIZE;
-// }
+    return sent_bytes;
+}
 
-// ssize_t ipv4_receive_file_udp(int socket_fd, pthread_mutex_t *sync_mutex)
-// {
-//     return 0;
-// }
+ssize_t ipv4_receive_file(int socket_fd, int file_fd, size_t n_bytes, int connection_type)
+{
+    char *buffer = malloc(n_bytes + 1);
+    if (buffer == NULL)
+        return -1;
+
+    buffer[n_bytes + 1] = 0;
+
+    ssize_t sent_bytes = ipv4_receive_buffer(socket_fd, buffer, n_bytes, connection_type);
+    if (sent_bytes == -1)
+        return -1;
+
+    ssize_t read_error = write(file_fd, buffer, n_bytes);
+    if (read_error == -1)
+        return -1;
+
+    free(buffer);
+
+    return sent_bytes;
+}

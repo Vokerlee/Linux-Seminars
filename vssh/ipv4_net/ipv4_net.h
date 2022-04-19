@@ -28,6 +28,7 @@
 
 #include "ipv4_net_config.h"
 #include "udt.h"
+// #include "utils.h"
 
 // IPv4 control message parameters
 #define IPV4_SPARE_FIELDS 64
@@ -35,10 +36,11 @@
 
 // IPv4 control message types
 #define IPV4_MSG_HEADER_TYPE    1UL
-#define IPV4_FILE_HEADER_TYPE   2UL
-#define IPV4_SHUTDOWN_TYPE      3UL
-#define IPV4_BROADCAST_TYPE     4UL
-#define IPV4_SHELL_REQUEST_TYPE 5UL
+#define IPV4_BUF_HEADER_TYPE    2UL
+#define IPV4_FILE_HEADER_TYPE   3UL
+#define IPV4_SHUTDOWN_TYPE      4UL
+#define IPV4_BROADCAST_TYPE     5UL
+#define IPV4_SHELL_REQUEST_TYPE 6UL
 
 // IPv4 control message structure
 
@@ -56,7 +58,7 @@ typedef struct
 
 // IPv4 library function declarations
 
-int ipv4_socket(int type, int optname);
+int ipv4_socket (int type, int optname);
 
 int ipv4_connect(int socket_fd, in_addr_t dest_ip, in_port_t dest_port, int connection_type);
 int ipv4_bind   (int socket_fd, in_addr_t ip,      in_port_t port,      int connection_type, void *(*udt_server_handler)(void *));
@@ -64,19 +66,17 @@ int ipv4_listen (int socket_fd);
 int ipv4_accept (int socket_fd, struct sockaddr *addr, socklen_t *length);
 int ipv4_close  (int socket_fd, int connection_type);
 
-ssize_t ipv4_receive_message(int socket_fd,       void *buffer, size_t n_bytes, int connection_type);
-ssize_t ipv4_send_message   (int socket_fd, const void *buffer, size_t n_bytes, int connection_type);
+ssize_t ipv4_send_message     (int socket_fd, const void *buffer, size_t n_bytes, int connection_type);
+ssize_t ipv4_receive_message  (int socket_fd,       void *buffer, size_t n_bytes, int connection_type);
 
-ssize_t ipv4_send_file(int type, int socket_fd, int file_fd, const char* file_name);
-ssize_t ipv4_send_file_tcp(int socket_fd, int file_fd, const char* file_name);
-ssize_t ipv4_send_file_udp(int socket_fd, int file_fd, const char* file_name);
+ssize_t ipv4_send_buffer      (int socket_fd, const void *buffer, size_t n_bytes, int connection_type);
+ssize_t ipv4_receive_buffer   (int socket_fd,       void *buffer, size_t n_bytes, int connection_type);
 
-ssize_t ipv4_receive_file(int type, int socket_fd, pthread_mutex_t *sync_mutex);
-ssize_t ipv4_receive_file_tcp(int socket_fd, pthread_mutex_t *sync_mutex);
-ssize_t ipv4_receive_file_udp(int socket_fd, pthread_mutex_t *sync_mutex);
+ssize_t ipv4_send_file        (int socket_fd, int file_fd,                        int connection_type);
+ssize_t ipv4_receive_file     (int socket_fd, int file_fd, size_t n_bytes,        int connection_type);
 
-int ipv4_send_ctl_message(int socket_fd, uint64_t msg_type, uint64_t msg_length, 
-                          uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer, size_t spare_buffer_size,
-                          int connection_type);
- 
+int     ipv4_send_ctl_message (int socket_fd, uint64_t msg_type, uint64_t msg_length, 
+                              uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer, size_t spare_buffer_size,
+                              int connection_type);
+
 #endif // !IPV4_NET_H_
