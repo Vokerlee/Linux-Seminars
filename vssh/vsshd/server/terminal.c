@@ -5,7 +5,12 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-static int handle_terminal_commands(int socket_fd, int master_fd, int connection_type);
+static int SOCKET_FD = -1;
+static int MASTER_FD = -1;
+static int CONNECTION_TYPE = -1;
+
+static int   handle_terminal_commands(int socket_fd, int master_fd, int connection_type);
+static void *handle_terminal_sender  (void *arg);
 
 int handle_terminal_request(int socket_fd, int connection_type)
 {
@@ -122,11 +127,24 @@ int handle_terminal_request(int socket_fd, int connection_type)
 
 static int handle_terminal_commands(int socket_fd, int master_fd, int connection_type)
 {
+    CONNECTION_TYPE = connection_type;
+    SOCKET_FD       = socket_fd;
+    MASTER_FD       = master_fd;
+
     int return_value = 0;
 
     ipv4_ctl_message ctl_message = {0};
     char bash_command[PACKET_DATA_SIZE + 1] = {0};
-    char buffer[BUFSIZ + 1] = {0};
+
+    pthread_t send_thread;
+    int send_pthread_error = pthread_create(&send_thread, NULL, handle_terminal_sender, NULL);
+    if (send_pthread_error == -1)
+    {
+        fprintf(stderr, "pthread_create() couldn't control message : %s\n", strerror(errno));
+        return -1;
+    }
+
+    pthread_detach(send_thread);
 
     while(1)
     {
@@ -164,31 +182,10 @@ static int handle_terminal_commands(int socket_fd, int master_fd, int connection
             break;
         }
 
-        sleep(1);
-
-        ssize_t read_master_bytes = read(master_fd, buffer, sizeof(buffer));
-        if (read_master_bytes == -1)
-        {
-            ipv4_syslog(LOG_ERR, "[TERMINAL]: error during read() from master_fd: %s", strerror(errno));
-            return_value = -1;
-            break;
-        }
-
-        ipv4_syslog(LOG_INFO, "[TERMINAL]: read bytes from master = %zu", read_master_bytes);
-
-        ssize_t sent_bytes = ipv4_send_message(socket_fd, buffer, read_master_bytes, connection_type);
-        if (sent_bytes == -1 || sent_bytes == 0)
-        {
-            ipv4_syslog(LOG_ERR, "[TERMINAL]: error during ipv4_send_message(): %s", strerror(errno));
-            return_value = -1;
-            break;
-        }
-
-        ipv4_syslog(LOG_INFO, "[TERMINAL]: sent bytes to client: %zu\n", sent_bytes);
-
-        memset(bash_command, 0, bytes_to_read     + 1);
-        memset(buffer,       0, read_master_bytes + 1);
+        memset(bash_command, 0, bytes_to_read + 1);
     }
+
+    pthread_cancel(send_thread);
 
     ssize_t write_master_bytes = write(master_fd, "exit\n", sizeof("exit\n"));
     if (write_master_bytes != sizeof("exit\n"))
@@ -201,4 +198,36 @@ static int handle_terminal_commands(int socket_fd, int master_fd, int connection
         ipv4_syslog(LOG_INFO, "[TERMINAL]: successfully finish bash session");
 
     return return_value;
+}
+
+static void *handle_terminal_sender(void *arg)
+{
+    int old_type = 0;
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &old_type);
+
+    char buffer[BUFSIZ + 1] = {0};
+
+    while (1)
+    {
+        ssize_t read_master_bytes = read(MASTER_FD, buffer, sizeof(buffer));
+        if (read_master_bytes == -1)
+        {
+            ipv4_syslog(LOG_ERR, "[TERMINAL]: error during read() from master_fd: %s", strerror(errno));
+            pthread_exit(NULL);
+        }
+
+        ipv4_syslog(LOG_INFO, "[TERMINAL]: read bytes from master = %zu", read_master_bytes);
+
+        ssize_t sent_bytes = ipv4_send_message(SOCKET_FD, buffer, read_master_bytes, CONNECTION_TYPE);
+        if (sent_bytes == -1 || sent_bytes == 0)
+        {
+            ipv4_syslog(LOG_ERR, "[TERMINAL]: error during ipv4_send_message(): %s", strerror(errno));
+            pthread_exit(NULL);
+        }
+
+        ipv4_syslog(LOG_INFO, "[TERMINAL]: sent bytes to client: %zu\n", sent_bytes);
+        memset(buffer, 0, read_master_bytes + 1);
+    }
+
+    return NULL;
 }

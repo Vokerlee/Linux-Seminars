@@ -78,8 +78,6 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type)
         return -1;
     }
 
-    int old_type = 0;
-    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &old_type);
     pthread_detach(recv_thread);
 
     while(1)
@@ -114,6 +112,9 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type)
 
 static void *vssh_shell_receiver(void *arg)
 {
+    int old_type = 0;
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &old_type);
+
     char buffer[BUFSIZ + 1] = {0};
     ipv4_ctl_message ctl_message = {0};
 
