@@ -1,5 +1,10 @@
 #include "vssh.h"
 
+static int SOCKET_FD = -1;
+static int CONNECTION_TYPE = -1;
+
+static void *vssh_shell_receiver(void *arg);
+
 int vssh_send_message(in_addr_t dest_ip, const char *message, size_t len, int connection_type)
 {
     int socket_type = connection_type;
@@ -60,10 +65,22 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type)
         return -1;
     }
 
-    fprintf(stderr, "\033[0;37m"); // gray
+    CONNECTION_TYPE = connection_type;
+    SOCKET_FD       = socket_fd;
 
     char buffer[BUFSIZ + 1] = {0};
-    ipv4_ctl_message ctl_message = {0};
+
+    pthread_t recv_thread;
+    int recv_pthread_error = pthread_create(&recv_thread, NULL, vssh_shell_receiver, NULL);
+    if (recv_pthread_error == -1)
+    {
+        fprintf(stderr, "pthread_create() couldn't control message : %s\n", strerror(errno));
+        return -1;
+    }
+
+    int old_type = 0;
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &old_type);
+    pthread_detach(recv_thread);
 
     while(1)
     {
@@ -88,32 +105,41 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type)
             break;
 
         memset(buffer, 0, read_cmd_bytes + 1);
-        fprintf(stderr, "\033[0;37m"); // gray
+    }
 
-        ssize_t recv_bytes_ctl = ipv4_receive_message(socket_fd, &ctl_message, sizeof(ipv4_ctl_message), connection_type);
+    pthread_cancel(recv_thread);
+
+    return ipv4_close(socket_fd, connection_type);
+}
+
+static void *vssh_shell_receiver(void *arg)
+{
+    char buffer[BUFSIZ + 1] = {0};
+    ipv4_ctl_message ctl_message = {0};
+
+    while (1)
+    {
+        ssize_t recv_bytes_ctl = ipv4_receive_message(SOCKET_FD, &ctl_message, sizeof(ipv4_ctl_message), CONNECTION_TYPE);
         if (recv_bytes_ctl == -1)
         {
             fprintf(stderr, "ipv4_receive_message() couldn't receive message\n");
-            ipv4_close(socket_fd, connection_type);
-            return -1;
+            pthread_exit(NULL);
         }
 
         size_t bytes_to_read = ctl_message.message_length > BUFSIZ ? BUFSIZ: ctl_message.message_length;
 
-        ssize_t recv_bytes = ipv4_receive_message(socket_fd, buffer, bytes_to_read, connection_type);
+        ssize_t recv_bytes = ipv4_receive_message(SOCKET_FD, buffer, bytes_to_read, CONNECTION_TYPE);
         if (recv_bytes == -1)
         {
             fprintf(stderr, "ipv4_receive_message() couldn't receive message\n");
-            ipv4_close(socket_fd, connection_type);
-            return -1;
+            pthread_exit(NULL);
         }
 
-        printf("%s", buffer);
-
+        printf("\033[0;36m%s", buffer);
         memset(buffer, 0, bytes_to_read + 1);
     }
-
-    return ipv4_close(socket_fd, connection_type);
+    
+    return NULL;
 }
 
 int vssh_send_broadcast_request()
