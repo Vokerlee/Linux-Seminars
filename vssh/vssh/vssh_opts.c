@@ -36,11 +36,18 @@ int vssh_send_message(in_addr_t dest_ip, const char *message, size_t len, int co
     return ipv4_close(socket_fd, connection_type);
 }
 
-int vssh_shell_request(in_addr_t dest_ip, int connection_type)
+int vssh_shell_request(in_addr_t dest_ip, int connection_type, char *username)
 {
     int socket_type = connection_type;
     if (socket_type == SOCK_STREAM_UDT)
         socket_type = SOCK_DGRAM;
+
+    ssize_t name_length = strlen(username);
+    if (name_length > IPV4_SPARE_BUFFER_LENGTH)
+    {
+        fprintf(stderr, "too many symbols in username: is can be no more than 256 symbols\n");
+        return -1;
+    }
 
     int socket_fd = ipv4_socket(socket_type, SO_REUSEADDR);
     if (socket_fd == -1)
@@ -57,10 +64,10 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type)
         return -1;
     }
 
-    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_SHELL_REQUEST_TYPE, 0, NULL, 0, NULL, 0, connection_type);
+    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_SHELL_REQUEST_TYPE, 0, NULL, 0, username, name_length, connection_type);
     if (ctl_msg_state == -1)
     {
-        fprintf(stderr, "ipv4_send_ctl_message() couldn't control message\n");
+        fprintf(stderr, "ipv4_send_ctl_message() couldn't send message\n");
         ipv4_close(socket_fd, connection_type);
         return -1;
     }

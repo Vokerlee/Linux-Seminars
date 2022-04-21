@@ -4,16 +4,27 @@
 #include <termios.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <security/pam_appl.h>
+#include <security/pam_misc.h>
 
 static int SOCKET_FD = -1;
 static int MASTER_FD = -1;
 static int CONNECTION_TYPE = -1;
 
+static struct pam_conv conv =
+{
+    misc_conv,
+    NULL
+};
+
 static int   handle_terminal_commands(int socket_fd, int master_fd, int connection_type);
 static void *handle_terminal_sender  (void *arg);
+static int   log_into_user           (char *username);
 
-int handle_terminal_request(int socket_fd, int connection_type)
+int handle_terminal_request(int socket_fd, int connection_type, char *username)
 {
+    //log_into_user(username);
+
     int master_fd = posix_openpt(O_RDWR | O_NOCTTY);
 	if (master_fd == -1)
     {
@@ -123,6 +134,45 @@ int handle_terminal_request(int socket_fd, int connection_type)
     ipv4_syslog(LOG_INFO, "[TERMINAL]: successfully create terminal with bash");
 
     return handle_terminal_commands(socket_fd, master_fd, connection_type);
+}
+
+static int log_into_user(char *username)
+{
+    ipv4_syslog(LOG_INFO, "[TERMINAL]: begin to log in (\"%s\")", username);
+
+    pam_handle_t *pam = NULL;
+    int pam_error = 0;
+
+    pam_error = pam_start("vsshd", username, &conv, &pam);
+    if (pam_error != PAM_SUCCESS)
+    {
+        ipv4_syslog(LOG_ERR, "[TERMINAL]: \"pam_start()\" error: %s", strerror(errno));
+        return -1;
+    }
+
+    pam_error = pam_authenticate(pam, 0);
+    if (pam_error != PAM_SUCCESS)
+    {
+        ipv4_syslog(LOG_ERR, "[TERMINAL]: \"pam_authenticate()\" (\"%s\") error: code %d", username, pam_error);
+        return -1;
+    }
+
+    pam_error = pam_acct_mgmt(pam, 0);
+    if (pam_error != PAM_SUCCESS)
+    {
+        ipv4_syslog(LOG_ERR, "[TERMINAL]: \"pam_acct_mgmt()\" error: %s", strerror(errno));
+        return -1;
+    }
+
+    if (pam_end(pam, pam_error) != PAM_SUCCESS)
+    {
+        ipv4_syslog(LOG_ERR, "[TERMINAL]: \"pam_end()\" error: %s", strerror(errno));
+        return -1;
+    }
+
+    ipv4_syslog(LOG_INFO, "[TERMINAL]: successfully logged in into account \"%s\"", username);
+
+    return 0;
 }
 
 static int handle_terminal_commands(int socket_fd, int master_fd, int connection_type)

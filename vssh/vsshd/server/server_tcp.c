@@ -38,7 +38,7 @@ void *tcp_server_handler(void *connection_socket)
                 case IPV4_SHELL_REQUEST_TYPE:
                 {
                     ipv4_tcp_syslog(LOG_INFO, "get shell request");
-                    handle_terminal_request(socket_fd, SOCK_STREAM);
+                    handle_terminal_request(socket_fd, SOCK_STREAM, ctl_message.spare_buffer);
 
                     break;
                 }

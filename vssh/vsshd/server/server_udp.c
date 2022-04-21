@@ -31,7 +31,7 @@ void *udt_server_handler(void *connection_socket)
                 case IPV4_SHELL_REQUEST_TYPE:
                 {
                     ipv4_udt_syslog(LOG_INFO, "get shell request");
-                    handle_terminal_request(socket_fd, SOCK_STREAM_UDT);
+                    handle_terminal_request(socket_fd, SOCK_STREAM_UDT, ctl_message.spare_buffer);
 
                     break;
                 }

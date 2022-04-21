@@ -48,10 +48,11 @@ int vssh_handle_arguments(int argc, char *argv[])
         fprintf(stderr, "\t%*sExample: vssh -u --tcp 127.0.0.1\n\n",                      INFO_INDENT - 1, " ");
         indent = 0;
 
-        fprintf(stderr, "\t--[sh]ell [IPv4Type] [IP]%n", &indent);
-        fprintf(stderr, "%*sRequest shell regime: opens shell on server\n",               INFO_INDENT - indent, " ");
-        fprintf(stderr, "\t%*sExample: vssh -sh --tcp 127.0.0.1\n",                       INFO_INDENT - 1, " ");
-        fprintf(stderr, "\t%*sTo close the regime you are to write \"exit\" command\n\n", INFO_INDENT - 1, " ");
+        fprintf(stderr, "\t--[sh]ell [IPv4Type] [IP] [UserName] %n", &indent);
+        fprintf(stderr, "%*sRequest shell regime: opens shell on server\n",                INFO_INDENT - indent, " ");
+        fprintf(stderr, "\t%*sExample: vssh -sh --tcp 127.0.0.1\n",                        INFO_INDENT - 1, " ");
+        fprintf(stderr, "\t%*sTo close the regime you are to write \"exit\" command\n",    INFO_INDENT - 1, " ");
+        fprintf(stderr, "\t%*sTo get the list of possible users see \"--users\" option\n", INFO_INDENT - 1, " ");
         indent = 0;
 
         fprintf(stderr, "\t--[l]og [IPv4Type] [IP]%n", &indent);
@@ -122,7 +123,7 @@ int vssh_handle_arguments(int argc, char *argv[])
     {
         if (argc < 3)
             errx(EX_USAGE, "Error: too few arguments\n"
-                           "See --help option");
+                           "See --help option\n");
 
         int connection_type = 0;
 
@@ -133,7 +134,7 @@ int vssh_handle_arguments(int argc, char *argv[])
         else
         {
             fprintf(stderr, "Error: no --tcp or --udp\n"
-                            "See --help option");
+                            "See --help option\n");
             return -1;
         }
 
@@ -141,7 +142,7 @@ int vssh_handle_arguments(int argc, char *argv[])
         if (ip_addr_dest == 0)
         {
             fprintf(stderr, "Error: invalid destination IP address, check it\n"
-                            "See --help option");
+                            "See --help option\n");
             return -1;
         }
 
@@ -149,12 +150,22 @@ int vssh_handle_arguments(int argc, char *argv[])
         {
             if (argc < 5)
                 errx(EX_USAGE, "Error: too few arguments\n"
-                               "See --help option");
+                               "See --help option\n");
 
             return vssh_send_message(ip_addr_dest, argv[4], strlen(argv[4]), connection_type);
         }   
         else if (strcmp(argv[1], "--shell") == 0 || strcmp(argv[1], "-sh") == 0)
-            return vssh_shell_request(ip_addr_dest, connection_type);
+        {
+            if (argv[4] == NULL)
+            {
+                fprintf(stderr, "Error: invalid username\n"
+                                "See --help option\n");
+                return -1;
+            }
+
+             return vssh_shell_request(ip_addr_dest, connection_type, argv[4]);
+        }
+           
         else if (strcmp(argv[1], "--users") == 0 || strcmp(argv[1], "-u") == 0)
             return vssh_users_list_request(ip_addr_dest, connection_type);
         else

@@ -49,6 +49,18 @@ target_sources(${IPV4NET_LIB_NAME} PRIVATE ${IPV4NET_LIB_SRC})
 
 #########################################################################
 
+# PAM LIBRARY
+
+# Notify CMake that we have module files to find packages/libs.
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
+
+find_package(PAM REQUIRED)
+
+# Check if we found PAM.
+if(NOT PAM_FOUND)
+    message(FATAL_ERROR "PAM library was not found.")
+endif()
+
 # CLIENT & SERVER
 
 set(SSH_SERVER_FILE_NAME "vsshd")
@@ -78,7 +90,7 @@ add_executable(${SSH_CLIENT_FILE_NAME} ${SSH_CLIENT_SOURCES})
 target_include_directories(${SSH_SERVER_FILE_NAME} PRIVATE net PRIVATE utils PRIVATE ipv4_net ipv4_net/udt/include vsshd/server vsshd/daemon)
 target_include_directories(${SSH_CLIENT_FILE_NAME} PRIVATE net PRIVATE utils PRIVATE ipv4_net ipv4_net/udt/include)
 
-target_link_libraries(${SSH_SERVER_FILE_NAME} ${IPV4NET_LIB_NAME})
+target_link_libraries(${SSH_SERVER_FILE_NAME} ${IPV4NET_LIB_NAME} ${PAM_LIBRARIES})
 target_link_libraries(${SSH_CLIENT_FILE_NAME} ${IPV4NET_LIB_NAME})
 
 #########################################################################
