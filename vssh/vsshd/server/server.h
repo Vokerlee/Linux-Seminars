@@ -40,6 +40,7 @@ void *tcp_server_handler(void *connection_socket);
 int launch_vssh_udp_server(in_addr_t ip);
 void *udt_server_handler(void *connection_socket);
 
-int handle_terminal_request(int socket_fd, int connection_type);
+int handle_terminal_request  (int socket_fd, int connection_type);
+int handle_users_list_request(int socket_fd, int connection_type);
 
 #endif // !SERVER_H_

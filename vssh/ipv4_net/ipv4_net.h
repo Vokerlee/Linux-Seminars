@@ -35,12 +35,13 @@
 #define IPV4_SPARE_BUFFER_LENGTH 256
 
 // IPv4 control message types
-#define IPV4_MSG_HEADER_TYPE    1UL
-#define IPV4_BUF_HEADER_TYPE    2UL
-#define IPV4_FILE_HEADER_TYPE   3UL
-#define IPV4_SHUTDOWN_TYPE      4UL
-#define IPV4_BROADCAST_TYPE     5UL
-#define IPV4_SHELL_REQUEST_TYPE 6UL
+#define IPV4_MSG_HEADER_TYPE         1UL
+#define IPV4_BUF_HEADER_TYPE         2UL
+#define IPV4_FILE_HEADER_TYPE        3UL
+#define IPV4_SHUTDOWN_TYPE           4UL
+#define IPV4_BROADCAST_TYPE          5UL
+#define IPV4_SHELL_REQUEST_TYPE      6UL
+#define IPV4_USERS_LIST_REQUEST_TYPE 7UL
 
 // IPv4 control message structure
 
@@ -58,13 +59,13 @@ typedef struct
 
 // IPv4 library function declarations
 
-int ipv4_socket (int type, int optname);
+int     ipv4_socket           (int type, int optname);
 
-int ipv4_connect(int socket_fd, in_addr_t dest_ip, in_port_t dest_port, int connection_type);
-int ipv4_bind   (int socket_fd, in_addr_t ip,      in_port_t port,      int connection_type, void *(*udt_server_handler)(void *));
-int ipv4_listen (int socket_fd);
-int ipv4_accept (int socket_fd, struct sockaddr *addr, socklen_t *length);
-int ipv4_close  (int socket_fd, int connection_type);
+int     ipv4_connect          (int socket_fd, in_addr_t dest_ip, in_port_t dest_port, int connection_type);
+int     ipv4_bind             (int socket_fd, in_addr_t ip,      in_port_t port,      int connection_type, void *(*udt_server_handler)(void *));
+int     ipv4_listen           (int socket_fd);
+int     ipv4_accept           (int socket_fd, struct sockaddr *addr, socklen_t *length);
+int     ipv4_close            (int socket_fd, int connection_type);
 
 ssize_t ipv4_send_message     (int socket_fd, const void *buffer, size_t n_bytes, int connection_type);
 ssize_t ipv4_receive_message  (int socket_fd,       void *buffer, size_t n_bytes, int connection_type);

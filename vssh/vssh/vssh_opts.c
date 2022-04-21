@@ -82,7 +82,6 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type)
 
     while(1)
     {
-        fprintf(stderr, "\033[0;36m"); // yellow
         ssize_t read_cmd_bytes = read(STDIN_FILENO, buffer, sizeof(buffer));
         if (read_cmd_bytes == -1)
         {
@@ -118,6 +117,8 @@ static void *vssh_shell_receiver(void *arg)
     char buffer[BUFSIZ + 1] = {0};
     ipv4_ctl_message ctl_message = {0};
 
+    fprintf(stderr, "\033[0;37m"); // gray
+
     while (1)
     {
         ssize_t recv_bytes_ctl = ipv4_receive_message(SOCKET_FD, &ctl_message, sizeof(ipv4_ctl_message), CONNECTION_TYPE);
@@ -136,7 +137,7 @@ static void *vssh_shell_receiver(void *arg)
             pthread_exit(NULL);
         }
 
-        printf("\033[0;36m%s", buffer);
+        fprintf(stderr, "%s", buffer);
         memset(buffer, 0, bytes_to_read + 1);
     }
     
@@ -225,4 +226,59 @@ int vssh_send_broadcast_request()
     close(socket_fd);
 
     return 0;
+}
+
+int vssh_users_list_request(in_addr_t dest_ip, int connection_type)
+{
+    int socket_type = connection_type;
+    if (socket_type == SOCK_STREAM_UDT)
+        socket_type = SOCK_DGRAM;
+
+    int socket_fd = ipv4_socket(socket_type, SO_REUSEADDR);
+    if (socket_fd == -1)
+    {
+        fprintf(stderr, "ipv4_socket() couldn't create socket\n");
+        return -1;
+    }
+
+    int connnection_state = ipv4_connect(socket_fd, dest_ip, htons(SSH_SERVER_PORT), connection_type);
+    if (connnection_state == -1)
+    {
+        fprintf(stderr, "ipv4_connect() couldn't connect\n");
+        close(socket_fd);
+        return -1;
+    }
+
+    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_USERS_LIST_REQUEST_TYPE, 0, NULL, 0, NULL, 0, connection_type);
+    if (ctl_msg_state == -1)
+    {
+        fprintf(stderr, "ipv4_send_ctl_message() couldn't control message\n");
+        ipv4_close(socket_fd, connection_type);
+        return -1;
+    }
+
+    ipv4_ctl_message ctl_message = {0};
+    char buffer[BUFSIZ + 1];
+
+    ssize_t recv_bytes_ctl = ipv4_receive_message(socket_fd, &ctl_message, sizeof(ipv4_ctl_message), connection_type);
+    if (recv_bytes_ctl == -1)
+    {
+        fprintf(stderr, "ipv4_receive_message() couldn't receive message\n");
+        pthread_exit(NULL);
+    }
+
+    size_t bytes_to_read = ctl_message.message_length > BUFSIZ ? BUFSIZ: ctl_message.message_length;
+
+    ssize_t recv_bytes = ipv4_receive_message(socket_fd, buffer, bytes_to_read, connection_type);
+    if (recv_bytes == -1)
+    {
+        fprintf(stderr, "ipv4_receive_message() couldn't receive message\n");
+        pthread_exit(NULL);
+    }
+
+    fprintf(stderr, "\033[0;34m"); // green
+    printf("All server users:\n"
+           "%s\n", buffer);
+
+    return ipv4_close(socket_fd, connection_type);
 }

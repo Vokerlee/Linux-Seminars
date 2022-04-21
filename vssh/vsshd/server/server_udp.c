@@ -35,6 +35,14 @@ void *udt_server_handler(void *connection_socket)
 
                     break;
                 }
+
+                case IPV4_USERS_LIST_REQUEST_TYPE:
+                {
+                    ipv4_tcp_syslog(LOG_INFO, "get users list request");
+                    handle_users_list_request(socket_fd, SOCK_STREAM_UDT);
+                    
+                    break;
+                }
                     
                 default:
                     break;

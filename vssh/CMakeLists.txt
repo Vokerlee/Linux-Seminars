@@ -60,6 +60,7 @@ set(SSH_SERVER_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/vsshd/server/server_tcp.c
     ${CMAKE_CURRENT_SOURCE_DIR}/vsshd/server/server_udp.c
     ${CMAKE_CURRENT_SOURCE_DIR}/vsshd/server/terminal.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/vsshd/server/users.c
     ${CMAKE_CURRENT_SOURCE_DIR}/utils/utils.c
 )
 
