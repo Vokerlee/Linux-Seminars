@@ -122,7 +122,7 @@ int launch_vssh_tcp_server(in_addr_t ip)
         pthread_error = pthread_detach(new_thread);
         if (pthread_error == -1)
             ipv4_tcp_syslog(LOG_WARNING, "error in pthread_detach(): %s", strerror(errno));
-    }	
+    }
 
     return 0;
 }

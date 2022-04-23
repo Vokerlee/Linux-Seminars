@@ -1,7 +1,13 @@
 #include "vssh.h"
 
+#include <stdlib.h>
+#include <termios.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 static int SOCKET_FD = -1;
 static int CONNECTION_TYPE = -1;
+static pthread_t SENDER_THREAD;
 
 static void *vssh_shell_receiver(void *arg);
 
@@ -49,6 +55,25 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type, char *username)
         return -1;
     }
 
+    struct termios term;
+	if (tcgetattr(STDIN_FILENO, &term) == -1)
+    {
+		perror("tcgetattr()");
+		return -1;
+	}
+
+    term.c_cc[VINTR]  = 0;
+    term.c_cc[VQUIT]  = 0;
+    term.c_cc[VSUSP]  = 0;
+    term.c_cc[VSTOP]  = 0;
+    term.c_cc[VSTART] = 0;
+
+	if (tcsetattr(STDIN_FILENO, TCSANOW, &term) == -1)
+    {
+		perror("tcsetattr()");
+		return -1;
+	}
+
     int socket_fd = ipv4_socket(socket_type, SO_REUSEADDR);
     if (socket_fd == -1)
     {
@@ -74,6 +99,11 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type, char *username)
 
     CONNECTION_TYPE = connection_type;
     SOCKET_FD       = socket_fd;
+    SENDER_THREAD   = pthread_self();
+    
+    int old_type = 0;
+    pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &old_type);
+    pthread_detach(SENDER_THREAD);
 
     char buffer[BUFSIZ + 1] = {0};
 
@@ -123,6 +153,7 @@ static void *vssh_shell_receiver(void *arg)
 
     char buffer[BUFSIZ + 1] = {0};
     ipv4_ctl_message ctl_message = {0};
+    const char cancel_msg[] = {0x18, 0};
 
     fprintf(stderr, "\033[0;37m"); // gray
 
@@ -142,6 +173,15 @@ static void *vssh_shell_receiver(void *arg)
         {
             fprintf(stderr, "ipv4_receive_message() couldn't receive message\n");
             pthread_exit(NULL);
+        }
+
+        if (strcmp(cancel_msg, buffer) == 0)
+        {
+            pthread_cancel(SENDER_THREAD);
+            fprintf(stderr, "Invalid password!\n");
+            ipv4_close(SOCKET_FD, CONNECTION_TYPE);
+
+            exit(EXIT_FAILURE);
         }
 
         fprintf(stderr, "%s", buffer);

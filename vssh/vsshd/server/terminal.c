@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <termios.h>
+#include <pwd.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <security/pam_appl.h>
@@ -17,14 +18,12 @@ static struct pam_conv conv =
     NULL
 };
 
-static int   handle_terminal_commands(int socket_fd, int master_fd, int connection_type);
+static int   handle_terminal_commands(int socket_fd, int master_fd, int connection_type, char *username);
 static void *handle_terminal_sender  (void *arg);
-static int   log_into_user           (char *username);
+static int   login_into_user           (char *username);
 
 int handle_terminal_request(int socket_fd, int connection_type, char *username)
 {
-    //log_into_user(username);
-
     int master_fd = posix_openpt(O_RDWR | O_NOCTTY);
 	if (master_fd == -1)
     {
@@ -123,6 +122,23 @@ int handle_terminal_request(int socket_fd, int connection_type, char *username)
             exit(EXIT_FAILURE);
         }
 
+        int login_state = login_into_user(username);
+        if (login_state == -1)
+        {
+            fprintf(stderr, "%c", 0x18);
+            exit(EXIT_FAILURE);
+        }
+
+        struct passwd *user_info = getpwnam(username);
+        if (user_info == NULL)
+        {
+            fprintf(stderr, "%c", 0x18);
+            exit(EXIT_FAILURE);
+        }
+
+        setuid(user_info->pw_uid);
+        setgid(user_info->pw_uid);
+
         char *bash_argv[] = {"bash", NULL};
         if (execvp("bash", bash_argv) == -1)
         {
@@ -133,12 +149,12 @@ int handle_terminal_request(int socket_fd, int connection_type, char *username)
 
     ipv4_syslog(LOG_INFO, "[TERMINAL]: successfully create terminal with bash");
 
-    return handle_terminal_commands(socket_fd, master_fd, connection_type);
+    return handle_terminal_commands(socket_fd, master_fd, connection_type, username);
 }
 
-static int log_into_user(char *username)
+static int login_into_user(char *username)
 {
-    ipv4_syslog(LOG_INFO, "[TERMINAL]: begin to log in (\"%s\")", username);
+    ipv4_syslog(LOG_INFO, "[TERMINAL]: begin to log in into \"%s\" account", username);
 
     pam_handle_t *pam = NULL;
     int pam_error = 0;
@@ -175,7 +191,7 @@ static int log_into_user(char *username)
     return 0;
 }
 
-static int handle_terminal_commands(int socket_fd, int master_fd, int connection_type)
+static int handle_terminal_commands(int socket_fd, int master_fd, int connection_type, char *username)
 {
     CONNECTION_TYPE = connection_type;
     SOCKET_FD       = socket_fd;
@@ -206,6 +222,21 @@ static int handle_terminal_commands(int socket_fd, int master_fd, int connection
             break;
         }
 
+        if (connection_type == SOCK_STREAM && recv_bytes_ctl == 0)
+        {
+            pthread_cancel(send_thread);
+            pthread_exit(NULL);
+        }
+
+        if (ctl_message.message_type == IPV4_SHUTDOWN_TYPE)
+        {
+            ipv4_syslog(LOG_NOTICE, "successfully finish job and exit");
+            pthread_cancel(send_thread);
+
+            void *retval = 0;
+            pthread_exit(retval);
+        }
+
         ipv4_syslog(LOG_INFO, "[TERMINAL]: received bytes from client (ctl): %zu\n", recv_bytes_ctl);
 
         size_t bytes_to_read = ctl_message.message_length > PACKET_DATA_SIZE ? PACKET_DATA_SIZE: ctl_message.message_length;
@@ -216,6 +247,11 @@ static int handle_terminal_commands(int socket_fd, int master_fd, int connection
             ipv4_syslog(LOG_ERR, "[TERMINAL]: error during ipv4_receive_message(): %s", strerror(errno));
             return_value = -1;
             break;
+        }
+        if (connection_type == SOCK_STREAM && recv_bytes_ctl == 0)
+        {
+            pthread_cancel(send_thread);
+            pthread_exit(NULL);
         }
 
         ipv4_syslog(LOG_INFO, "[TERMINAL]: received bytes from client: %zu\n", recv_bytes);

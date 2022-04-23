@@ -153,7 +153,7 @@ int vssh_handle_arguments(int argc, char *argv[])
                                "See --help option\n");
 
             return vssh_send_message(ip_addr_dest, argv[4], strlen(argv[4]), connection_type);
-        }   
+        }
         else if (strcmp(argv[1], "--shell") == 0 || strcmp(argv[1], "-sh") == 0)
         {
             if (argv[4] == NULL)
