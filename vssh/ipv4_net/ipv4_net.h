@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <sysexits.h>
 #include <err.h>
+#include <syslog.h>
 
 // Sockets libs
 #include <sys/socket.h>
@@ -28,10 +29,9 @@
 
 #include "ipv4_net_config.h"
 #include "udt.h"
-// #include "utils.h"
 
 // IPv4 control message parameters
-#define IPV4_SPARE_FIELDS 64
+#define IPV4_SPARE_FIELDS 128
 #define IPV4_SPARE_BUFFER_LENGTH 256
 
 // IPv4 control message types
@@ -53,7 +53,11 @@ typedef struct
     union
     {
         uint32_t spare_fields[IPV4_SPARE_FIELDS];
-        char     spare_buffer[IPV4_SPARE_BUFFER_LENGTH];
+        struct
+        {
+            char spare_buffer1[IPV4_SPARE_BUFFER_LENGTH];
+            char spare_buffer2[IPV4_SPARE_BUFFER_LENGTH];
+        };
     };
 } ipv4_ctl_message;
 
@@ -70,14 +74,18 @@ int     ipv4_close            (int socket_fd, int connection_type);
 ssize_t ipv4_send_message     (int socket_fd, const void *buffer, size_t n_bytes, int connection_type);
 ssize_t ipv4_receive_message  (int socket_fd,       void *buffer, size_t n_bytes, int connection_type);
 
-ssize_t ipv4_send_buffer      (int socket_fd, const void *buffer, size_t n_bytes, int connection_type);
-ssize_t ipv4_receive_buffer   (int socket_fd,       void *buffer, size_t n_bytes, int connection_type);
+ssize_t ipv4_send_buffer      (int socket_fd, const void *buffer, size_t n_bytes, int msg_type,
+                               uint32_t *spare_fields, size_t spare_fields_size,  char *spare_buffer1, size_t spare_buffer_size1,
+                               char *spare_buffer2,    size_t spare_buffer_size2, int connection_type);
+ssize_t ipv4_receive_buffer   (int socket_fd, void *buffer, size_t n_bytes,       int connection_type);
 
-ssize_t ipv4_send_file        (int socket_fd, int file_fd,                        int connection_type);
+ssize_t ipv4_send_file        (int socket_fd, int file_fd, 
+                               uint32_t *spare_fields, size_t spare_fields_size,  char *spare_buffer1, size_t spare_buffer_size1, 
+                               char *spare_buffer2,    size_t spare_buffer_size2, int connection_type);
 ssize_t ipv4_receive_file     (int socket_fd, int file_fd, size_t n_bytes,        int connection_type);
 
-int     ipv4_send_ctl_message (int socket_fd, uint64_t msg_type, uint64_t msg_length, 
-                              uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer, size_t spare_buffer_size,
-                              int connection_type);
+int     ipv4_send_ctl_message (int socket_fd,          uint64_t msg_type,         uint64_t msg_length, 
+                               uint32_t *spare_fields, size_t spare_fields_size,  char *spare_buffer1, size_t spare_buffer_size1,
+                               char *spare_buffer2,    size_t spare_buffer_size2, int connection_type);
 
 #endif // !IPV4_NET_H_

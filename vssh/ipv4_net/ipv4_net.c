@@ -83,7 +83,7 @@ int ipv4_close(int socket_fd, int connection_type)
         return udt_close(socket_fd);
     else
     {
-        int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_SHUTDOWN_TYPE, 0, NULL, 0, NULL, 0, SOCK_STREAM);
+        int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_SHUTDOWN_TYPE, 0, NULL, 0, NULL, 0, NULL, 0, SOCK_STREAM);
         if (ctl_msg_state == -1)
         {
             close(socket_fd);
@@ -95,21 +95,29 @@ int ipv4_close(int socket_fd, int connection_type)
 }
 
 int ipv4_send_ctl_message(int socket_fd, uint64_t msg_type, uint64_t msg_length, 
-                          uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer, size_t spare_buffer_size,
-                          int connection_type)
+                          uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer1, size_t spare_buffer_size1,
+                          char *spare_buffer2, size_t spare_buffer_size2, int connection_type)
 {
     if (spare_fields != NULL && spare_fields_size > IPV4_SPARE_FIELDS)
         return -1;
 
-    if (spare_buffer != NULL && spare_buffer_size > IPV4_SPARE_BUFFER_LENGTH)
+    if (spare_buffer1 != NULL && spare_buffer_size1 > IPV4_SPARE_BUFFER_LENGTH)
+        return -1;
+
+    if (spare_buffer2 != NULL && spare_buffer_size2 > IPV4_SPARE_BUFFER_LENGTH)
         return -1;
 
     ipv4_ctl_message message = {.message_type = msg_type, .message_length = msg_length};
 
     if (spare_fields != NULL)
         memcpy(message.spare_fields, spare_fields, spare_fields_size * sizeof(spare_fields[0]));
-    else if (spare_buffer != NULL)
-        memcpy(message.spare_buffer, spare_buffer, spare_buffer_size * sizeof(spare_buffer[0]));
+    else 
+    {
+        if (spare_buffer1 != NULL)
+            memcpy(message.spare_buffer1, spare_buffer1, spare_buffer_size1 * sizeof(spare_buffer1[0]));
+        if (spare_buffer2 != NULL)
+            memcpy(message.spare_buffer2, spare_buffer2, spare_buffer_size2 * sizeof(spare_buffer2[0]));
+    }
 
     if (connection_type == SOCK_STREAM || connection_type == SOCK_DGRAM)
         return send(socket_fd, &message, sizeof(ipv4_ctl_message), 0);
@@ -124,7 +132,7 @@ ssize_t ipv4_send_message(int socket_fd, const void *buffer, size_t n_bytes, int
     if (buffer == NULL)
         return -1;
 
-    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_MSG_HEADER_TYPE, n_bytes, NULL, 0, NULL, 0, connection_type);
+    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_MSG_HEADER_TYPE, n_bytes, NULL, 0, NULL, 0, NULL, 0, connection_type);
     if (ctl_msg_state == -1)
         return -1;
 
@@ -149,7 +157,9 @@ ssize_t ipv4_receive_message(int socket_fd, void *buffer, size_t n_bytes, int co
         return -1;
 }
 
-ssize_t ipv4_send_buffer(int socket_fd, const void *buffer, size_t n_bytes, int connection_type)
+ssize_t ipv4_send_buffer(int socket_fd, const void *buffer, size_t n_bytes, int msg_type,
+                         uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer1, size_t spare_buffer_size1,
+                         char *spare_buffer2, size_t spare_buffer_size2, int connection_type)
 {
     if (buffer == NULL)
         return -1;
@@ -157,14 +167,18 @@ ssize_t ipv4_send_buffer(int socket_fd, const void *buffer, size_t n_bytes, int 
     if (connection_type != SOCK_STREAM && connection_type != SOCK_DGRAM && connection_type != SOCK_STREAM_UDT)
         return -1;
 
-    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_BUF_HEADER_TYPE, n_bytes, NULL, 0, NULL, 0, connection_type);
+    if (msg_type == -1)
+        msg_type = IPV4_BUF_HEADER_TYPE;
+
+    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, msg_type, n_bytes, spare_fields, spare_fields_size, 
+                                              spare_buffer1, spare_buffer_size1, spare_buffer2, spare_buffer_size2, connection_type);
     if (ctl_msg_state == -1)
         return -1;
 
     ssize_t n_sent_bytes = 0;
     size_t n_iters = n_bytes / PACKET_DATA_SIZE;
     size_t n_remaining_bytes = n_bytes % PACKET_DATA_SIZE;
-
+    
     const char *cur_pos = buffer;
 
     for (size_t i = 0; i < n_iters; ++i)
@@ -186,9 +200,9 @@ ssize_t ipv4_send_buffer(int socket_fd, const void *buffer, size_t n_bytes, int 
     {
         ssize_t n_bytes = 0;
         if (connection_type == SOCK_STREAM_UDT)
-            n_bytes = udt_send(socket_fd, cur_pos, PACKET_DATA_SIZE);
+            n_bytes = udt_send(socket_fd, cur_pos, n_remaining_bytes);
         else
-            n_bytes = send(socket_fd, cur_pos, PACKET_DATA_SIZE, 0);
+            n_bytes = send(socket_fd, cur_pos, n_remaining_bytes, 0);
 
         if (n_bytes <= 0)
             return -1;
@@ -232,9 +246,9 @@ ssize_t ipv4_receive_buffer(int socket_fd, void *buffer, size_t n_bytes, int con
     {
         ssize_t n_bytes = 0;
         if (connection_type == SOCK_STREAM_UDT)
-            n_bytes = udt_recv(socket_fd, cur_pos, PACKET_DATA_SIZE);
+            n_bytes = udt_recv(socket_fd, cur_pos, n_remaining_bytes);
         else
-            n_bytes = read(socket_fd, cur_pos, PACKET_DATA_SIZE);
+            n_bytes = read(socket_fd, cur_pos, n_remaining_bytes);
 
         if (n_bytes <= 0)
             return -1;
@@ -245,7 +259,8 @@ ssize_t ipv4_receive_buffer(int socket_fd, void *buffer, size_t n_bytes, int con
     return n_recv_bytes;
 }
 
-ssize_t ipv4_send_file(int socket_fd, int file_fd, int connection_type)
+ssize_t ipv4_send_file(int socket_fd, int file_fd, uint32_t *spare_fields, size_t spare_fields_size, 
+                       char *spare_buffer1, size_t spare_buffer_size1, char *spare_buffer2, size_t spare_buffer_size2, int connection_type)
 {
     off_t file_size = get_file_size(file_fd);
 
@@ -259,7 +274,8 @@ ssize_t ipv4_send_file(int socket_fd, int file_fd, int connection_type)
     if (read_error == -1)
         return -1;
 
-    ssize_t sent_bytes = ipv4_send_buffer(socket_fd, buffer, file_size, connection_type);
+    ssize_t sent_bytes = ipv4_send_buffer(socket_fd, buffer, file_size, IPV4_FILE_HEADER_TYPE, spare_fields, spare_fields_size,
+                                          spare_buffer1, spare_buffer_size1, spare_buffer2, spare_buffer_size2, connection_type);
     if (sent_bytes == -1)
         return -1;
 

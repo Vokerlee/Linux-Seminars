@@ -1,6 +1,6 @@
 #include "vssh.h"
 
-static const int INFO_INDENT = 50;
+static const int INFO_INDENT = 65;
 static const char *VSSHD_PID_FILE_NAME = "/var/run/vsshd.pid";
 
 #define MAX_PID_NAME_LENGTH 64
@@ -49,15 +49,15 @@ int vssh_handle_arguments(int argc, char *argv[])
         indent = 0;
 
         fprintf(stderr, "\t--[sh]ell [IPv4Type] [IP] [UserName] %n", &indent);
-        fprintf(stderr, "%*sRequest shell regime: opens shell on server\n",                INFO_INDENT - indent, " ");
-        fprintf(stderr, "\t%*sExample: vssh -sh --tcp 127.0.0.1\n",                        INFO_INDENT - 1, " ");
-        fprintf(stderr, "\t%*sTo close the regime you are to write \"exit\" command\n",    INFO_INDENT - 1, " ");
-        fprintf(stderr, "\t%*sTo get the list of possible users see \"--users\" option\n", INFO_INDENT - 1, " ");
+        fprintf(stderr, "%*sRequest shell regime: opens shell on server\n",                  INFO_INDENT - indent, " ");
+        fprintf(stderr, "\t%*sExample: vssh -sh --tcp 127.0.0.1\n",                          INFO_INDENT - 1, " ");
+        fprintf(stderr, "\t%*sTo close the regime you are to write \"exit\" command\n",      INFO_INDENT - 1, " ");
+        fprintf(stderr, "\t%*sTo get the list of possible users see \"--users\" option\n\n", INFO_INDENT - 1, " ");
         indent = 0;
 
-        fprintf(stderr, "\t--[l]og [IPv4Type] [IP]%n", &indent);
-        fprintf(stderr, "%*sPrint log information to stdout\n",                           INFO_INDENT - indent, " ");
-        fprintf(stderr, "\t%*sExample: vssh -l --tcp 127.0.0.1\n\n",                      INFO_INDENT - 1, " ");
+        fprintf(stderr, "\t--[f]ile [IPv4Type] [IP] [UserName] [InitPath] [ServerPath]%n", &indent);
+        fprintf(stderr, "%*sTransfer file to remote server\n",       INFO_INDENT - indent, " ");
+        fprintf(stderr, "\t%*sExample: vssh -l --tcp 127.0.0.1\n\n", INFO_INDENT - 1, " ");
         indent = 0;
 
     }
@@ -133,16 +133,16 @@ int vssh_handle_arguments(int argc, char *argv[])
             connection_type = SOCK_STREAM_UDT;
         else
         {
-            fprintf(stderr, "Error: no --tcp or --udp\n"
-                            "See --help option\n");
+            errx(EX_USAGE, "Error: no --tcp or --udp\n"
+                           "See --help option\n");
             return -1;
         }
 
         in_addr_t ip_addr_dest = inet_addr(argv[3]);
         if (ip_addr_dest == 0)
         {
-            fprintf(stderr, "Error: invalid destination IP address, check it\n"
-                            "See --help option\n");
+            errx(EX_USAGE, "Error: invalid destination IP address, check it\n"
+                           "See --help option\n");
             return -1;
         }
 
@@ -158,16 +158,24 @@ int vssh_handle_arguments(int argc, char *argv[])
         {
             if (argv[4] == NULL)
             {
-                fprintf(stderr, "Error: invalid username\n"
-                                "See --help option\n");
+                errx(EX_USAGE, "Error: invalid username\n"
+                               "See --help option\n");
                 return -1;
             }
 
-             return vssh_shell_request(ip_addr_dest, connection_type, argv[4]);
-        }
-           
+            return vssh_shell_request(ip_addr_dest, connection_type, argv[4]);
+        }  
         else if (strcmp(argv[1], "--users") == 0 || strcmp(argv[1], "-u") == 0)
             return vssh_users_list_request(ip_addr_dest, connection_type);
+        else if (strcmp(argv[1], "--file") == 0 || strcmp(argv[1], "-f") == 0)
+        {
+            if (argc < 7)
+                errx(EX_USAGE, "Error: too few arguments\n"
+                               "See --help option\n");
+
+            return vssh_send_file(ip_addr_dest, connection_type, argv[4], argv[5], argv[6]);
+        }
+            
         else
             return -1;
     }

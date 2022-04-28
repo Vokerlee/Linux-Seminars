@@ -30,7 +30,8 @@ void *tcp_server_handler(void *connection_socket)
                     if (recv_bytes == -1 || recv_bytes == 0)
                         ipv4_tcp_syslog(LOG_ERR, "couldn't receive message after getting msg header");
 
-                    ipv4_tcp_syslog(LOG_INFO, "get message:\n%s", message);
+                    ipv4_udt_syslog(LOG_INFO, "message length: %zu", recv_bytes);
+                    ipv4_tcp_syslog(LOG_INFO, "get message: %s", message);
 
                     break;
                 }
@@ -38,7 +39,15 @@ void *tcp_server_handler(void *connection_socket)
                 case IPV4_SHELL_REQUEST_TYPE:
                 {
                     ipv4_tcp_syslog(LOG_INFO, "get shell request");
-                    handle_terminal_request(socket_fd, SOCK_STREAM, ctl_message.spare_buffer);
+                    handle_terminal_request(socket_fd, SOCK_STREAM, ctl_message.spare_buffer1);
+
+                    break;
+                }
+
+                case IPV4_FILE_HEADER_TYPE:
+                {
+                    ipv4_tcp_syslog(LOG_INFO, "get file \"%s\" to user \"%s\"", ctl_message.spare_buffer2, ctl_message.spare_buffer1);
+                    handle_file(socket_fd, SOCK_STREAM, ctl_message.message_length, ctl_message.spare_buffer1, ctl_message.spare_buffer2);
 
                     break;
                 }
@@ -110,7 +119,7 @@ int launch_vssh_tcp_server(in_addr_t ip)
         ipv4_tcp_syslog(LOG_NOTICE, "new connection: IP = %s, port = %d!\n", 
                         inet_ntoa(accept_addr.sin_addr), (int) ntohs(accept_addr.sin_port));
 
-        pthread_t new_thread = {0};
+        pthread_t new_thread = {0}; 
         int pthread_error = pthread_create(&new_thread, NULL, tcp_server_handler, (void *) accepted_socket_fd);
         if (pthread_error == -1)
         {

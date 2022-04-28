@@ -48,8 +48,8 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type, char *username)
     if (socket_type == SOCK_STREAM_UDT)
         socket_type = SOCK_DGRAM;
 
-    ssize_t name_length = strlen(username);
-    if (name_length > IPV4_SPARE_BUFFER_LENGTH)
+    ssize_t username_length = strlen(username);
+    if (username_length > IPV4_SPARE_BUFFER_LENGTH)
     {
         fprintf(stderr, "too many symbols in username: is can be no more than 256 symbols\n");
         return -1;
@@ -89,7 +89,7 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type, char *username)
         return -1;
     }
 
-    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_SHELL_REQUEST_TYPE, 0, NULL, 0, username, name_length, connection_type);
+    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_SHELL_REQUEST_TYPE, 0, NULL, 0, username, username_length, NULL, 0, connection_type);
     if (ctl_msg_state == -1)
     {
         fprintf(stderr, "ipv4_send_ctl_message() couldn't send message\n");
@@ -154,6 +154,7 @@ static void *vssh_shell_receiver(void *arg)
     char buffer[BUFSIZ + 1] = {0};
     ipv4_ctl_message ctl_message = {0};
     const char cancel_msg[] = {0x18, 0};
+    const char file_send_request_msg[] = {0x19, 0};
 
     fprintf(stderr, "\033[0;37m"); // gray
 
@@ -182,6 +183,11 @@ static void *vssh_shell_receiver(void *arg)
             ipv4_close(SOCKET_FD, CONNECTION_TYPE);
 
             exit(EXIT_FAILURE);
+        }
+
+        if (strcmp(file_send_request_msg, buffer) == 0)
+        {
+
         }
 
         fprintf(stderr, "%s", buffer);
@@ -296,7 +302,7 @@ int vssh_users_list_request(in_addr_t dest_ip, int connection_type)
         return -1;
     }
 
-    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_USERS_LIST_REQUEST_TYPE, 0, NULL, 0, NULL, 0, connection_type);
+    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_USERS_LIST_REQUEST_TYPE, 0, NULL, 0, NULL, 0, NULL, 0, connection_type);
     if (ctl_msg_state == -1)
     {
         fprintf(stderr, "ipv4_send_ctl_message() couldn't control message\n");
@@ -328,4 +334,165 @@ int vssh_users_list_request(in_addr_t dest_ip, int connection_type)
            "%s\n", buffer);
 
     return ipv4_close(socket_fd, connection_type);
+}
+
+int vssh_send_file(in_addr_t dest_ip, int connection_type, char *username, char *src_file, char *dest_path)
+{
+    // Preparation
+    int socket_type = connection_type;
+    if (socket_type == SOCK_STREAM_UDT)
+        socket_type = SOCK_DGRAM;
+
+    ssize_t username_length = strlen(username);
+    if (username_length > IPV4_SPARE_BUFFER_LENGTH)
+    {
+        fprintf(stderr, "too many symbols in username: ts can be no more than 256 symbols\n");
+        return -1;
+    }
+
+    ssize_t dest_path_length = strlen(dest_path);
+    if (dest_path_length > IPV4_SPARE_BUFFER_LENGTH)
+    {
+        fprintf(stderr, "too many symbols in destination path: ts can be no more than 256 symbols\n");
+        return -1;
+    }
+
+    int src_file_fd = open(src_file, O_RDONLY, 0666);
+    if (src_file_fd == -1)
+    {
+        perror("open()");
+        return -1;
+    }
+
+    int socket_fd = ipv4_socket(socket_type, SO_REUSEADDR);
+    if (socket_fd == -1)
+    {
+        fprintf(stderr, "ipv4_socket() couldn't create socket\n");
+        close(src_file_fd);
+        return -1;
+    }
+
+    int connnection_state = ipv4_connect(socket_fd, dest_ip, htons(SSH_SERVER_PORT), connection_type);
+    if (connnection_state == -1)
+    {
+        fprintf(stderr, "ipv4_connect() couldn't connect\n");
+        close(socket_fd);
+        close(src_file_fd);
+        return -1;
+    }
+
+    // Get ready to send file
+    off_t file_size = get_file_size(src_file_fd);
+
+    char *file_buffer = malloc(file_size + 1);
+    if (file_buffer == NULL)
+    {
+        fprintf(stderr, "malloc() error\n");
+        close(socket_fd);
+        close(src_file_fd);
+        return -1;
+    }
+
+    file_buffer[file_size + 1] = 0;
+
+    fprintf(stderr, "\033[0;37m"); // gray
+    fprintf(stderr, "Password: ");
+
+    ssize_t read_error = read(src_file_fd, file_buffer, file_size);
+    if (read_error == -1)
+    {
+        perror("read");
+        free(file_buffer);
+        close(src_file_fd);
+        ipv4_close(socket_fd, connection_type);
+        return -1;
+    }
+
+    ipv4_send_ctl_message(socket_fd, IPV4_FILE_HEADER_TYPE, file_size, NULL, 0,
+                          username, username_length, dest_path, dest_path_length, connection_type);
+
+    char password_buffer[BUFSIZ + 1] = {0};
+    ipv4_ctl_message ctl_message = {0};
+
+    // Read password, send it and get respond
+    ssize_t read_cmd_bytes = read(STDIN_FILENO, password_buffer, sizeof(password_buffer)); // read password
+    if (read_cmd_bytes == -1)
+    {
+        perror("read() error");
+        free(file_buffer);
+        ipv4_close(socket_fd, connection_type);
+        return -1;
+    }
+
+    ssize_t sent_bytes = ipv4_send_message(socket_fd, password_buffer, read_cmd_bytes, connection_type);
+    if (sent_bytes == -1 || sent_bytes == 0)
+    {
+        fprintf(stderr, "ipv4_send_message() couldn't sent message\n");
+        free(file_buffer);
+        close(src_file_fd);
+        ipv4_close(socket_fd, connection_type);
+        return -1;
+    }
+
+    memset(password_buffer, 0, read_cmd_bytes + 1);
+
+    ssize_t recv_bytes_ctl = ipv4_receive_message(socket_fd, &ctl_message, sizeof(ipv4_ctl_message), connection_type);
+    if (recv_bytes_ctl == -1)
+    {
+        fprintf(stderr, "ipv4_receive_message() couldn't receive message\n");
+        free(file_buffer);
+        close(src_file_fd);
+        ipv4_close(socket_fd, connection_type);
+    }
+
+    size_t bytes_to_read = ctl_message.message_length > BUFSIZ ? BUFSIZ: ctl_message.message_length;
+
+    ssize_t recv_bytes = ipv4_receive_message(socket_fd, password_buffer, bytes_to_read, connection_type);
+    if (recv_bytes == -1)
+    {
+        fprintf(stderr, "ipv4_receive_message() couldn't receive message\n");
+        free(file_buffer);
+        close(src_file_fd);
+        ipv4_close(socket_fd, connection_type);
+    }
+
+    // Check for respond
+    const char error_msg[]  = {0x17, 0};
+    const char cancel_msg[] = {0x18, 0};
+    const char file_send_request_msg[] = {0x19, 0};
+
+    sent_bytes = -1;
+
+    if (strcmp(cancel_msg, password_buffer) == 0)
+    {
+        fprintf(stderr, "Invalid password!\n");
+        free(file_buffer);
+        close(src_file_fd);
+        ipv4_close(socket_fd, connection_type);
+        
+        return -1;
+    }
+    else if (strcmp(error_msg, password_buffer) == 0)
+    {
+        fprintf(stderr, "Error occured! See vsshd journal logs.\n");
+        free(file_buffer);
+        close(src_file_fd);
+        ipv4_close(socket_fd, connection_type);
+
+        return -1;
+    }
+    else if (strcmp(file_send_request_msg, password_buffer) == 0)
+    {
+        ipv4_send_buffer(socket_fd, file_buffer, file_size, IPV4_FILE_HEADER_TYPE, NULL, 0,
+                         username, username_length, dest_path, dest_path_length, connection_type);
+
+        free(file_buffer);
+        fprintf(stdout, "Successfully sent!\n");
+
+        close(src_file_fd);
+    }
+
+    ipv4_close(socket_fd, connection_type);
+
+    return 0;
 }

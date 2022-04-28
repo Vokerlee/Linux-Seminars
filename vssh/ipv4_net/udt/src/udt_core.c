@@ -96,7 +96,6 @@ void *udt_sender_start(void *arg)
 
     udt_syslog(LOG_INFO, "sender-thread is ready to send packets");
 
-    udt_conn_t *conn = (udt_conn_t *) arg;
     udt_packet_t packet;
 
     while (udt_send_packet_buffer_read(&packet))

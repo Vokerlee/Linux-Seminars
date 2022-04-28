@@ -21,9 +21,6 @@ add_compile_options(
     -Wno-pointer-to-int-cast
     -Wno-int-to-pointer-cast
     -Wno-variadic-macros
-    -Wno-unused-variable
-    -Wno-unused-parameter
-    -Wno-unused-function
     -Wno-sign-compare
     -Wno-misleading-indentation
 )

@@ -31,14 +31,22 @@ void *udt_server_handler(void *connection_socket)
                 case IPV4_SHELL_REQUEST_TYPE:
                 {
                     ipv4_udt_syslog(LOG_INFO, "get shell request");
-                    handle_terminal_request(socket_fd, SOCK_STREAM_UDT, ctl_message.spare_buffer);
+                    handle_terminal_request(socket_fd, SOCK_STREAM_UDT, ctl_message.spare_buffer1);
+
+                    break;
+                }
+
+                case IPV4_FILE_HEADER_TYPE:
+                {
+                    ipv4_udt_syslog(LOG_INFO, "get file \"%s\" to user \"%s\"", ctl_message.spare_buffer2, ctl_message.spare_buffer1);
+                    handle_file(socket_fd, SOCK_STREAM_UDT, ctl_message.message_length, ctl_message.spare_buffer1, ctl_message.spare_buffer2);
 
                     break;
                 }
 
                 case IPV4_USERS_LIST_REQUEST_TYPE:
                 {
-                    ipv4_tcp_syslog(LOG_INFO, "get users list request");
+                    ipv4_udt_syslog(LOG_INFO, "get users list request");
                     handle_users_list_request(socket_fd, SOCK_STREAM_UDT);
                     
                     break;

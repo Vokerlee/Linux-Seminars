@@ -18,9 +18,9 @@ static struct pam_conv conv =
     NULL
 };
 
-static int   handle_terminal_commands(int socket_fd, int master_fd, int connection_type, char *username);
-static void *handle_terminal_sender  (void *arg);
-static int   login_into_user           (char *username);
+int handle_terminal_commands(int socket_fd, int master_fd, int connection_type);
+static void *handle_terminal_sender(void *arg);
+int login_into_user(char *username);
 
 int handle_terminal_request(int socket_fd, int connection_type, char *username)
 {
@@ -86,6 +86,8 @@ int handle_terminal_request(int socket_fd, int connection_type, char *username)
 
     if (child_pid == 0)
     {
+        ipv4_syslog(LOG_INFO, "[TERMINAL]: begin to launch bash");
+
         if (setsid() == -1)
         {
             ipv4_syslog(LOG_ERR, "[TERMINAL]: error while using setsid(): %s", strerror(errno));
@@ -149,10 +151,10 @@ int handle_terminal_request(int socket_fd, int connection_type, char *username)
 
     ipv4_syslog(LOG_INFO, "[TERMINAL]: successfully create terminal with bash");
 
-    return handle_terminal_commands(socket_fd, master_fd, connection_type, username);
+    return handle_terminal_commands(socket_fd, master_fd, connection_type);
 }
 
-static int login_into_user(char *username)
+int login_into_user(char *username)
 {
     ipv4_syslog(LOG_INFO, "[TERMINAL]: begin to log in into \"%s\" account", username);
 
@@ -191,7 +193,7 @@ static int login_into_user(char *username)
     return 0;
 }
 
-static int handle_terminal_commands(int socket_fd, int master_fd, int connection_type, char *username)
+int handle_terminal_commands(int socket_fd, int master_fd, int connection_type)
 {
     CONNECTION_TYPE = connection_type;
     SOCKET_FD       = socket_fd;
@@ -206,7 +208,7 @@ static int handle_terminal_commands(int socket_fd, int master_fd, int connection
     int send_pthread_error = pthread_create(&send_thread, NULL, handle_terminal_sender, NULL);
     if (send_pthread_error == -1)
     {
-        fprintf(stderr, "pthread_create() couldn't control message : %s\n", strerror(errno));
+        ipv4_syslog(LOG_ERR, "[TERMINAL]: pthread_create() couldn't control message: %s\n", strerror(errno));
         return -1;
     }
 
@@ -237,7 +239,7 @@ static int handle_terminal_commands(int socket_fd, int master_fd, int connection
             pthread_exit(retval);
         }
 
-        ipv4_syslog(LOG_INFO, "[TERMINAL]: received bytes from client (ctl): %zu\n", recv_bytes_ctl);
+        // ipv4_syslog(LOG_INFO, "[TERMINAL]: received bytes from client (ctl): %zu\n", recv_bytes_ctl);
 
         size_t bytes_to_read = ctl_message.message_length > PACKET_DATA_SIZE ? PACKET_DATA_SIZE: ctl_message.message_length;
 
@@ -254,7 +256,7 @@ static int handle_terminal_commands(int socket_fd, int master_fd, int connection
             pthread_exit(NULL);
         }
 
-        ipv4_syslog(LOG_INFO, "[TERMINAL]: received bytes from client: %zu\n", recv_bytes);
+        // ipv4_syslog(LOG_INFO, "[TERMINAL]: received bytes from client: %zu\n", recv_bytes);
         ipv4_syslog(LOG_INFO, "[TERMINAL]: get command: %s", bash_command);
 
         if (strcmp(bash_command, "exit\n") == 0)
@@ -302,7 +304,7 @@ static void *handle_terminal_sender(void *arg)
             pthread_exit(NULL);
         }
 
-        ipv4_syslog(LOG_INFO, "[TERMINAL]: read bytes from master = %zu", read_master_bytes);
+        // ipv4_syslog(LOG_INFO, "[TERMINAL]: read bytes from master = %zu", read_master_bytes);
 
         ssize_t sent_bytes = ipv4_send_message(SOCKET_FD, buffer, read_master_bytes, CONNECTION_TYPE);
         if (sent_bytes == -1 || sent_bytes == 0)
@@ -311,7 +313,7 @@ static void *handle_terminal_sender(void *arg)
             pthread_exit(NULL);
         }
 
-        ipv4_syslog(LOG_INFO, "[TERMINAL]: sent bytes to client: %zu\n", sent_bytes);
+        // ipv4_syslog(LOG_INFO, "[TERMINAL]: sent bytes to client: %zu\n", sent_bytes);
         memset(buffer, 0, read_master_bytes + 1);
     }
 

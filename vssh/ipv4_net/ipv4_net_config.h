@@ -5,10 +5,17 @@
 #include <stdio.h>
 
 // Log defines
-#define _UDT_LOG_
+// #define _UDT_LOG_
 #define _IPV4_UDT_LOG_
 #define _IPV4_TCP_LOG_
 #define _IPV4_LOG_
+
+#ifdef _UDT_LOG_
+    #define udt_syslog(priority, fmt, ...) \
+        syslog(priority, fmt, ##__VA_ARGS__)
+#else
+    #define udt_syslog(priority, fmt, ...)
+#endif // !_IPV4_LOG_
 
 // UDT version
 #define UDT_VERSION_MAJOR 0

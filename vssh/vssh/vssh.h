@@ -1,6 +1,7 @@
 #ifndef VSSH_CLIENT_H_
 #define VSSH_CLIENT_H_
 
+#include "utils.h"
 #include "ipv4_net.h"
 #include <syslog.h>
 #include <signal.h>
@@ -16,5 +17,6 @@ int vssh_send_message          (in_addr_t dest_ip, const char *message, size_t l
 int vssh_send_broadcast_request();
 int vssh_shell_request         (in_addr_t dest_ip, int connection_type, char *username);
 int vssh_users_list_request    (in_addr_t dest_ip, int connection_type);
+int vssh_send_file             (in_addr_t dest_ip, int connection_type, char *username, char *src_file, char *dest_path);
 
 #endif // !VSSH_CLIENT_H_
