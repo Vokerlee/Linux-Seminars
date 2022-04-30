@@ -1,12 +1,25 @@
 #include "server.h"
 
+extern const char *VSSH_RSA_PUBLIC_KEY_PATH;
+
 void *tcp_server_handler(void *connection_socket)
 {
     int socket_fd = (int) connection_socket;
 
-    ipv4_ctl_message ctl_message = {0};
+    ipv4_ctl_message ctl_message;
     char message[PACKET_DATA_SIZE + 1] = {0};
 
+    unsigned char secret[IPV4_SPARE_BUFFER_LENGTH] = {0};
+    int secret_size = ipv4_execute_dh_protocol(socket_fd, secret, 1, VSSH_RSA_PUBLIC_KEY_PATH, SOCK_STREAM);
+    if (secret_size <= 0)
+    {
+        ipv4_tcp_syslog(LOG_ERR, "Diffie-Hellman protocol failed");
+
+        void *retval = NULL;
+        pthread_exit(retval);
+    }
+
+    ipv4_tcp_syslog(LOG_INFO, "Diffie-Hellman protocol succeed");
     ipv4_tcp_syslog(LOG_INFO, "new thread is ready to work");
 
     while(1)
@@ -20,7 +33,7 @@ void *tcp_server_handler(void *connection_socket)
                 {
                     ipv4_tcp_syslog(LOG_NOTICE, "successfully finish job and exit");
 
-                    void *retval = 0;
+                    void *retval = NULL;
                     pthread_exit(retval);
                 }
                     
@@ -30,7 +43,7 @@ void *tcp_server_handler(void *connection_socket)
                     if (recv_bytes == -1 || recv_bytes == 0)
                         ipv4_tcp_syslog(LOG_ERR, "couldn't receive message after getting msg header");
 
-                    ipv4_udt_syslog(LOG_INFO, "message length: %zu", recv_bytes);
+                    ipv4_tcp_syslog(LOG_INFO, "message length: %zu", recv_bytes);
                     ipv4_tcp_syslog(LOG_INFO, "get message: %s", message);
 
                     break;
@@ -70,7 +83,7 @@ void *tcp_server_handler(void *connection_socket)
             ipv4_tcp_syslog(LOG_ERR, "error while receiving requests");
     }
 
-    void *retval = 0;
+    void *retval = NULL;
     pthread_exit(retval);
 }
 

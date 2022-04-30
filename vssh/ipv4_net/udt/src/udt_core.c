@@ -109,7 +109,7 @@ void *udt_sender_start(void *arg)
     }
 
     void *retval = 0;
-	pthread_exit(retval);
+    pthread_exit(retval);
 }
 
 void *udt_receiver_start(void *arg)
@@ -182,5 +182,5 @@ void *udt_receiver_start(void *arg)
     }
 
     void *retval = 0;
-	pthread_exit(retval);
+    pthread_exit(retval);
 }

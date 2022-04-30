@@ -4,7 +4,7 @@ void *udt_server_handler(void *connection_socket)
 {
     int socket_fd = (int) connection_socket;
     
-    ipv4_ctl_message ctl_message = {0};
+    ipv4_ctl_message ctl_message;
     char message[PACKET_DATA_SIZE + 1] = {0};
 
     ipv4_udt_syslog(LOG_INFO, "is ready to work");

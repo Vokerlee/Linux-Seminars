@@ -4,10 +4,20 @@
 #include <termios.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <openssl/pem.h>
+#include <openssl/ssl.h>
+#include <openssl/rsa.h>
+#include <openssl/evp.h>
+#include <openssl/bio.h>
+#include <openssl/err.h>
+#include <openssl/dh.h>
+#include <openssl/engine.h>
 
 static int SOCKET_FD = -1;
 static int CONNECTION_TYPE = -1;
 static pthread_t SENDER_THREAD;
+
+extern const char *VSSH_RSA_PRIVATE_KEY_PATH;
 
 static void *vssh_shell_receiver(void *arg);
 
@@ -31,7 +41,15 @@ int vssh_send_message(in_addr_t dest_ip, const char *message, size_t len, int co
         close(socket_fd);
         return -1;
     }
-
+    
+    unsigned char secret[IPV4_SPARE_BUFFER_LENGTH] = {0};
+    int secret_size = ipv4_execute_dh_protocol(socket_fd, secret, 0, VSSH_RSA_PRIVATE_KEY_PATH, connection_type);
+    if (secret_size <= 0)
+    {
+        ipv4_close(socket_fd, connection_type);
+        return -1;
+    }
+    
     ssize_t sent_bytes = ipv4_send_message(socket_fd, message, len, connection_type);
     if (sent_bytes == -1 || sent_bytes == 0)
     {
@@ -62,11 +80,7 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type, char *username)
 		return -1;
 	}
 
-    term.c_cc[VINTR]  = 0;
-    term.c_cc[VQUIT]  = 0;
-    term.c_cc[VSUSP]  = 0;
-    term.c_cc[VSTOP]  = 0;
-    term.c_cc[VSTART] = 0;
+    cfmakeraw(&term);
 
 	if (tcsetattr(STDIN_FILENO, TCSANOW, &term) == -1)
     {
@@ -117,7 +131,7 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type, char *username)
 
     pthread_detach(recv_thread);
 
-    while(1)
+    while (1)
     {
         ssize_t read_cmd_bytes = read(STDIN_FILENO, buffer, sizeof(buffer));
         if (read_cmd_bytes == -1)
@@ -154,7 +168,6 @@ static void *vssh_shell_receiver(void *arg)
     char buffer[BUFSIZ + 1] = {0};
     ipv4_ctl_message ctl_message = {0};
     const char cancel_msg[] = {0x18, 0};
-    const char file_send_request_msg[] = {0x19, 0};
 
     fprintf(stderr, "\033[0;37m"); // gray
 
@@ -183,11 +196,6 @@ static void *vssh_shell_receiver(void *arg)
             ipv4_close(SOCKET_FD, CONNECTION_TYPE);
 
             exit(EXIT_FAILURE);
-        }
-
-        if (strcmp(file_send_request_msg, buffer) == 0)
-        {
-
         }
 
         fprintf(stderr, "%s", buffer);

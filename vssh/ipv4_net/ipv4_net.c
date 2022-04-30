@@ -1,5 +1,14 @@
 #include "utils.h"
 #include "ipv4_net.h"
+#include <openssl/pem.h>
+#include <openssl/ssl.h>
+#include <openssl/rsa.h>
+#include <openssl/evp.h>
+#include <openssl/bio.h>
+#include <openssl/err.h>
+#include <openssl/dh.h>
+#include <openssl/bn.h>
+#include <openssl/engine.h>
 
 int ipv4_socket(int type, int optname)
 {
@@ -109,15 +118,12 @@ int ipv4_send_ctl_message(int socket_fd, uint64_t msg_type, uint64_t msg_length,
 
     ipv4_ctl_message message = {.message_type = msg_type, .message_length = msg_length};
 
-    if (spare_fields != NULL)
+    if (spare_fields  != NULL)
         memcpy(message.spare_fields, spare_fields, spare_fields_size * sizeof(spare_fields[0]));
-    else 
-    {
-        if (spare_buffer1 != NULL)
-            memcpy(message.spare_buffer1, spare_buffer1, spare_buffer_size1 * sizeof(spare_buffer1[0]));
-        if (spare_buffer2 != NULL)
-            memcpy(message.spare_buffer2, spare_buffer2, spare_buffer_size2 * sizeof(spare_buffer2[0]));
-    }
+    if (spare_buffer1 != NULL)
+        memcpy(message.spare_buffer1, spare_buffer1, spare_buffer_size1 * sizeof(spare_buffer1[0]));
+    if (spare_buffer2 != NULL)
+        memcpy(message.spare_buffer2, spare_buffer2, spare_buffer_size2 * sizeof(spare_buffer2[0]));
 
     if (connection_type == SOCK_STREAM || connection_type == SOCK_DGRAM)
         return send(socket_fd, &message, sizeof(ipv4_ctl_message), 0);
@@ -303,4 +309,131 @@ ssize_t ipv4_receive_file(int socket_fd, int file_fd, size_t n_bytes, int connec
     free(buffer);
 
     return sent_bytes;
+}
+
+ssize_t ipv4_execute_dh_protocol(int socket_fd, unsigned char *secret, int is_initiator, const char *rsa_key_path, int connection_type)
+{
+    if (secret == NULL)
+        return -1;
+    
+    DH *dh_struct = DH_new();
+    if (dh_struct == NULL)
+        return -1;
+
+    BIGNUM *p = NULL;
+    BIGNUM *g = NULL;
+    BIGNUM *q = NULL;
+    unsigned char p_buffer[IPV4_SPARE_BUFFER_LENGTH] = {0};
+    unsigned char g_buffer[IPV4_SPARE_BUFFER_LENGTH] = {0};
+    unsigned char p_buffer_encrypted[IPV4_SPARE_BUFFER_LENGTH] = {0};
+    unsigned char g_buffer_encrypted[IPV4_SPARE_BUFFER_LENGTH] = {0};
+
+    ipv4_ctl_message ctl_message;
+
+    if (is_initiator == 0)
+    {
+        ssize_t recv_bytes = ipv4_receive_message(socket_fd, &ctl_message, sizeof(ctl_message), connection_type);
+        if (recv_bytes == -1 || recv_bytes == 0)
+            return -1;
+
+        private_decrypt_RSA_filename((unsigned char *) ctl_message.spare_buffer1, ctl_message.spare_fields[2], p_buffer, rsa_key_path);
+        private_decrypt_RSA_filename((unsigned char *) ctl_message.spare_buffer2, ctl_message.spare_fields[3], g_buffer, rsa_key_path);
+
+        p = BN_bin2bn(p_buffer, ctl_message.spare_fields[0], NULL);
+        g = BN_bin2bn(g_buffer, ctl_message.spare_fields[1], NULL);
+
+        if (p == NULL || g == NULL)
+            return -1;
+
+        DH_set0_pqg(dh_struct, p, NULL, g);
+    }
+    else
+    {
+        if (DH_generate_parameters_ex(dh_struct, 1024, DH_GENERATOR_2, NULL) != 1)
+            return -1;
+
+        int codes = -1;
+        if (DH_check(dh_struct, &codes) != 1)
+            return -1;
+
+        if (codes != 0)
+            return -1;
+
+        DH_get0_pqg(dh_struct, (const BIGNUM **) &p, (const BIGNUM **) &q, (const BIGNUM **) &g);
+
+        BN_bn2bin(p, p_buffer);
+        BN_bn2bin(g, g_buffer);
+
+        uint32_t pg_sizes[4] = {BN_num_bytes(p), BN_num_bytes(g)};
+
+        pg_sizes[2] = public_encrypt_RSA_filename(p_buffer, pg_sizes[0], p_buffer_encrypted, rsa_key_path);
+        pg_sizes[3] = public_encrypt_RSA_filename(g_buffer, pg_sizes[1], g_buffer_encrypted, rsa_key_path);
+
+        int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_ENCRYPTION_PG_NUM_TYPE, 0, pg_sizes, 4,
+                                                  (char *) p_buffer_encrypted, pg_sizes[2],
+                                                  (char *) g_buffer_encrypted, pg_sizes[3], connection_type);
+        if (ctl_msg_state == -1)
+            return -1;
+    }
+
+    // Now both sides know p and g values
+
+    if (DH_generate_key(dh_struct) != 1) // generate private & public keys
+        return -1;
+
+    const BIGNUM *public_key = DH_get0_pub_key(dh_struct);
+    if (public_key == NULL)
+        return -1;
+
+    unsigned char public_key_buffer[IPV4_SPARE_BUFFER_LENGTH] = {0};
+    unsigned char public_key_buffer_encrypted[IPV4_SPARE_BUFFER_LENGTH] = {0};
+
+
+    BN_bn2bin(public_key, public_key_buffer);
+
+    // Exchange public keys
+
+    int decrypted_size = -1;
+
+    if (is_initiator == 0)
+    {
+        uint32_t public_key_size = private_encrypt_RSA_filename(public_key_buffer, BN_num_bytes(public_key), public_key_buffer_encrypted, rsa_key_path);
+
+        int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_ENCRYPTION_PUBKEY_TYPE, 0, &public_key_size, 1,
+                                                  (char *) public_key_buffer_encrypted, public_key_size, NULL, 0, connection_type);
+        if (ctl_msg_state == -1)
+            return -1;
+
+        ssize_t recv_bytes = ipv4_receive_message(socket_fd, &ctl_message, sizeof(ctl_message), connection_type);
+        if (recv_bytes == -1 || recv_bytes == 0)
+            return -1;
+
+        decrypted_size = private_decrypt_RSA_filename((unsigned char *) ctl_message.spare_buffer1, ctl_message.spare_fields[0], public_key_buffer, rsa_key_path);
+    }
+    else
+    {
+        uint32_t public_key_size = public_encrypt_RSA_filename(public_key_buffer, BN_num_bytes(public_key), public_key_buffer_encrypted, rsa_key_path);
+
+        ssize_t recv_bytes = ipv4_receive_message(socket_fd, &ctl_message, sizeof(ctl_message), connection_type);
+        if (recv_bytes == -1 || recv_bytes == 0)
+            return -1;
+
+        int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_ENCRYPTION_PUBKEY_TYPE, 0, &public_key_size, 1,
+                                                  (char *) public_key_buffer_encrypted, public_key_size, NULL, 0, connection_type);
+        if (ctl_msg_state == -1)
+            return -1;
+
+        decrypted_size = public_decrypt_RSA_filename((unsigned char *) ctl_message.spare_buffer1, ctl_message.spare_fields[0], public_key_buffer, rsa_key_path);
+    }
+
+    BIGNUM *alien_public_key = BN_bin2bn(public_key_buffer, decrypted_size, NULL);
+    if (alien_public_key == NULL)
+        return -1;
+
+    int secret_size = DH_compute_key(secret, alien_public_key, dh_struct);
+
+    DH_free(dh_struct);
+    BN_free(alien_public_key);
+
+    return secret_size;
 }

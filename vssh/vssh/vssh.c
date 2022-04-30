@@ -3,6 +3,7 @@
 #include <termios.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include "utils.h"
 
 int main(int argc, char *argv[])
 {

@@ -167,16 +167,22 @@ int handle_file(int socket_fd, int connection_type, size_t file_size, char *user
         return -1;
     }
     if (connection_type == SOCK_STREAM && recv_bytes_ctl == 0)
+    {
+        ipv4_syslog(LOG_ERR, "[TERMINAL]: error during ipv4_receive_message(): %s", strerror(errno));
         return -1;
-
+    }
+        
     ssize_t recv_bytes = ipv4_receive_message(socket_fd, password, ctl_message.message_length, connection_type);
     if (recv_bytes == -1)
     {
         ipv4_syslog(LOG_ERR, "[TERMINAL]: error during ipv4_receive_message(): %s", strerror(errno));
         return -1;
     }
-    if (connection_type == SOCK_STREAM && recv_bytes == 0)
+    if (connection_type == SOCK_STREAM && recv_bytes_ctl == 0)
+    {
+        ipv4_syslog(LOG_ERR, "[TERMINAL]: error during ipv4_receive_message(): %s", strerror(errno));
         return -1;
+    }
 
     ipv4_syslog(LOG_NOTICE, "[FILE TRANSFER] password[%zu]: %s", strlen(password), password);
 

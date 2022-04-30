@@ -21,6 +21,16 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 
+// OpenSSL lib
+#include <openssl/pem.h>
+#include <openssl/ssl.h>
+#include <openssl/rsa.h>
+#include <openssl/evp.h>
+#include <openssl/bio.h>
+#include <openssl/err.h>
+#include <openssl/dh.h>
+#include <openssl/engine.h>
+
 // Others libs
 #define _UNIX03_THREADS
 #include <pthread.h>
@@ -31,7 +41,7 @@
 #include "udt.h"
 
 // IPv4 control message parameters
-#define IPV4_SPARE_FIELDS 128
+#define IPV4_SPARE_FIELDS 32
 #define IPV4_SPARE_BUFFER_LENGTH 256
 
 // IPv4 control message types
@@ -42,6 +52,8 @@
 #define IPV4_BROADCAST_TYPE          5UL
 #define IPV4_SHELL_REQUEST_TYPE      6UL
 #define IPV4_USERS_LIST_REQUEST_TYPE 7UL
+#define IPV4_ENCRYPTION_PG_NUM_TYPE  8UL
+#define IPV4_ENCRYPTION_PUBKEY_TYPE  9UL
 
 // IPv4 control message structure
 
@@ -50,7 +62,7 @@ typedef struct
     uint64_t message_type;
     uint64_t message_length;
     
-    union
+    struct
     {
         uint32_t spare_fields[IPV4_SPARE_FIELDS];
         struct
@@ -87,5 +99,7 @@ ssize_t ipv4_receive_file     (int socket_fd, int file_fd, size_t n_bytes,      
 int     ipv4_send_ctl_message (int socket_fd,          uint64_t msg_type,         uint64_t msg_length, 
                                uint32_t *spare_fields, size_t spare_fields_size,  char *spare_buffer1, size_t spare_buffer_size1,
                                char *spare_buffer2,    size_t spare_buffer_size2, int connection_type);
+
+ssize_t ipv4_execute_dh_protocol(int socket_fd, unsigned char *secret, int is_initiator, const char *rsa_key_path, int connection_type);
 
 #endif // !IPV4_NET_H_

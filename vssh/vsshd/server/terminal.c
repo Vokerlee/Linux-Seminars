@@ -25,11 +25,11 @@ int login_into_user(char *username);
 int handle_terminal_request(int socket_fd, int connection_type, char *username)
 {
     int master_fd = posix_openpt(O_RDWR | O_NOCTTY);
-	if (master_fd == -1)
+    if (master_fd == -1)
     {
         ipv4_syslog(LOG_ERR, "[TERMINAL]: error while using posix_openpt(): %s", strerror(errno));
-		return -1;
-	}
+        return -1;
+    }
 
     #define CLOSE_MASTER_AND_LOG(master_fd, corrupted_function)                                             \
     do {                                                                                                    \
@@ -54,19 +54,17 @@ int handle_terminal_request(int socket_fd, int connection_type, char *username)
     }
 
     struct termios term;
-	if (tcgetattr(master_fd, &term) == -1)
+    if (tcgetattr(master_fd, &term) == -1)
     {
-		CLOSE_MASTER_AND_LOG(master_fd, tcgetattr());
-		return -1;
-	}
+        CLOSE_MASTER_AND_LOG(master_fd, tcgetattr());
+        return -1;
+    }
 
-	cfmakeraw(&term);
-
-	if (tcsetattr(master_fd, TCSANOW, &term) == -1)
+    if (tcsetattr(master_fd, TCSANOW, &term) == -1)
     {
-		CLOSE_MASTER_AND_LOG(master_fd, tcsetattr());
-		return -1;
-	}
+        CLOSE_MASTER_AND_LOG(master_fd, tcsetattr());
+        return -1;
+    }
 
     char *slave_pty_name = ptsname(master_fd);
     if (slave_pty_name == NULL)
@@ -139,7 +137,7 @@ int handle_terminal_request(int socket_fd, int connection_type, char *username)
         }
 
         setuid(user_info->pw_uid);
-        setgid(user_info->pw_uid);
+        setgid(user_info->pw_gid);
 
         char *bash_argv[] = {"bash", NULL};
         if (execvp("bash", bash_argv) == -1)
