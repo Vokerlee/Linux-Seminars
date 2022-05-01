@@ -40,8 +40,8 @@ void *tcp_server_handler(void *connection_socket);
 int launch_vssh_udp_server(in_addr_t ip);
 void *udt_server_handler(void *connection_socket);
 
-int handle_terminal_request  (int socket_fd, int connection_type, char *username);
-int handle_users_list_request(int socket_fd, int connection_type);
-int handle_file(int socket_fd, int connection_type, size_t file_size, char *username, char *dest_file_path);
+int handle_terminal_request(int socket_fd, int connection_type, char *username, unsigned char *key);
+int handle_users_list_request(int socket_fd, int connection_type, unsigned char *key);
+int handle_file(int socket_fd, int connection_type, size_t file_size, char *username, char *dest_file_path, unsigned char *key);
 
 #endif // !SERVER_H_

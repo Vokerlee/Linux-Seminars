@@ -9,11 +9,12 @@
 #include <sys/wait.h>
 #include <security/pam_appl.h>
 #include <security/pam_misc.h>
+#include <openssl/aes.h>
 
 extern int login_into_user(char *username);
 extern int handle_terminal_commands(int socket_fd, int master_fd, int connection_type);
 
-int handle_users_list_request(int socket_fd, int connection_type)
+int handle_users_list_request(int socket_fd, int connection_type, unsigned char *key)
 {
     char buffer[BUFSIZ + 1] = {0};
     char *cur_pos = buffer;
@@ -42,10 +43,13 @@ int handle_users_list_request(int socket_fd, int connection_type)
 
     endpwent();
 
-    return ipv4_send_message(socket_fd, buffer, BUFSIZ, connection_type);
+    size_t written_bytes = BUFSIZ - n_max_bytes_to_write;
+    size_t bytes_to_send = written_bytes > PACKET_DATA_SIZE ? PACKET_DATA_SIZE : written_bytes;
+
+    return ipv4_send_message_secure(socket_fd, buffer, bytes_to_send, connection_type, key);
 }
 
-int handle_file(int socket_fd, int connection_type, size_t file_size, char *username, char *dest_file_path)
+int handle_file(int socket_fd, int connection_type, size_t file_size, char *username, char *dest_file_path, unsigned char *key)
 {
     int master_fd = posix_openpt(O_RDWR | O_NOCTTY);
 	if (master_fd == -1)
@@ -160,7 +164,7 @@ int handle_file(int socket_fd, int connection_type, size_t file_size, char *user
     char password[BUFSIZ + 1]    = {0};
     char file_message[PACKET_DATA_SIZE + 1] = {0};
 
-    ssize_t recv_bytes_ctl = ipv4_receive_message(socket_fd, &ctl_message, sizeof(ipv4_ctl_message), connection_type);
+    ssize_t recv_bytes_ctl = ipv4_receive_message_secure(socket_fd, &ctl_message, sizeof(ipv4_ctl_message), connection_type, key);
     if (recv_bytes_ctl == -1)
     {
         ipv4_syslog(LOG_ERR, "[TERMINAL]: error during ipv4_receive_message(): %s", strerror(errno));
@@ -172,7 +176,7 @@ int handle_file(int socket_fd, int connection_type, size_t file_size, char *user
         return -1;
     }
         
-    ssize_t recv_bytes = ipv4_receive_message(socket_fd, password, ctl_message.message_length, connection_type);
+    ssize_t recv_bytes = ipv4_receive_message_secure(socket_fd, password, ctl_message.message_length, connection_type, key);
     if (recv_bytes == -1)
     {
         ipv4_syslog(LOG_ERR, "[TERMINAL]: error during ipv4_receive_message(): %s", strerror(errno));
@@ -183,8 +187,6 @@ int handle_file(int socket_fd, int connection_type, size_t file_size, char *user
         ipv4_syslog(LOG_ERR, "[TERMINAL]: error during ipv4_receive_message(): %s", strerror(errno));
         return -1;
     }
-
-    ipv4_syslog(LOG_NOTICE, "[FILE TRANSFER] password[%zu]: %s", strlen(password), password);
 
     write(master_fd, password, ctl_message.message_length);
 
@@ -236,7 +238,7 @@ int handle_file(int socket_fd, int connection_type, size_t file_size, char *user
         snprintf(file_message, 2, "%c", 0x18);
     }
 
-    ssize_t sent_bytes = ipv4_send_message(socket_fd, file_message, PACKET_DATA_SIZE, connection_type);
+    ssize_t sent_bytes = ipv4_send_message_secure(socket_fd, file_message, 2, connection_type, key);
     if (sent_bytes == -1 || sent_bytes == 0)
     {
         ipv4_syslog(LOG_ERR, "[FILE TRANSFER] ipv4_send_message() couldn't sent message\n");
@@ -254,7 +256,7 @@ int handle_file(int socket_fd, int connection_type, size_t file_size, char *user
         return -1;
     }
 
-    recv_bytes_ctl = ipv4_receive_message(socket_fd, &ctl_message, sizeof(ipv4_ctl_message), connection_type);
+    recv_bytes_ctl = ipv4_receive_message_secure(socket_fd, &ctl_message, sizeof(ipv4_ctl_message), connection_type, key);
     if (recv_bytes_ctl == -1)
     {
         ipv4_syslog(LOG_ERR, "[FILE TRANSFER] ipv4_receive_message() couldn't receive message\n");
@@ -269,7 +271,7 @@ int handle_file(int socket_fd, int connection_type, size_t file_size, char *user
     {
         ipv4_syslog(LOG_INFO, "[FILE TRANSFER] begin to receive file (size = %zu)", file_size);
 
-        ssize_t recv_bytes = ipv4_receive_buffer(socket_fd, buffer, file_size, connection_type);
+        ssize_t recv_bytes = ipv4_receive_buffer_secure(socket_fd, buffer, file_size, connection_type, key);
         if (recv_bytes == -1)
         {
             ipv4_syslog(LOG_ERR, "[FILE TRANSFER] ipv4_receive_buffer() error\n");

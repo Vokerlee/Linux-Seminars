@@ -5,13 +5,15 @@
 #include <unistd.h>
 #include "utils.h"
 
+struct termios DEFAULT_TERM;
+
 int main(int argc, char *argv[])
 {
     fprintf(stderr, "\033[0;31m"); // red color
     closelog();
 
-    struct termios term;
-	if (tcgetattr(STDIN_FILENO, &term) == -1)
+
+	if (tcgetattr(STDIN_FILENO, &DEFAULT_TERM) == -1)
     {
 		perror("tcgetattr()");
 		return EXIT_FAILURE;
@@ -23,7 +25,7 @@ int main(int argc, char *argv[])
 
     int return_value = vssh_handle_arguments(argc, argv);
 
-	if (tcsetattr(STDIN_FILENO, TCSANOW, &term) == -1)
+	if (tcsetattr(STDIN_FILENO, TCSANOW, &DEFAULT_TERM) == -1)
     {
 		perror("tcsetattr()");
 		return EXIT_FAILURE;

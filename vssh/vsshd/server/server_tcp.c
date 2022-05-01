@@ -10,7 +10,7 @@ void *tcp_server_handler(void *connection_socket)
     char message[PACKET_DATA_SIZE + 1] = {0};
 
     unsigned char secret[IPV4_SPARE_BUFFER_LENGTH] = {0};
-    int secret_size = ipv4_execute_dh_protocol(socket_fd, secret, 1, VSSH_RSA_PUBLIC_KEY_PATH, SOCK_STREAM);
+    int secret_size = ipv4_execute_DH_protocol(socket_fd, secret, 1, VSSH_RSA_PUBLIC_KEY_PATH, SOCK_STREAM);
     if (secret_size <= 0)
     {
         ipv4_tcp_syslog(LOG_ERR, "Diffie-Hellman protocol failed");
@@ -22,9 +22,9 @@ void *tcp_server_handler(void *connection_socket)
     ipv4_tcp_syslog(LOG_INFO, "Diffie-Hellman protocol succeed");
     ipv4_tcp_syslog(LOG_INFO, "new thread is ready to work");
 
-    while(1)
+    while (1)
     {
-        ssize_t recv_bytes = ipv4_receive_message(socket_fd, &ctl_message, sizeof(ipv4_ctl_message), SOCK_STREAM);
+        ssize_t recv_bytes = ipv4_receive_message_secure(socket_fd, &ctl_message, sizeof(ipv4_ctl_message), SOCK_STREAM, secret);
         if (recv_bytes != -1 && recv_bytes != 0)
         {
             switch (ctl_message.message_type)
@@ -39,9 +39,10 @@ void *tcp_server_handler(void *connection_socket)
                     
                 case IPV4_MSG_HEADER_TYPE:
                 {
-                    recv_bytes = ipv4_receive_message(socket_fd, message, ctl_message.message_length, SOCK_STREAM);
+                    recv_bytes = ipv4_receive_message_secure(socket_fd, message, ctl_message.message_length, SOCK_STREAM, secret);
                     if (recv_bytes == -1 || recv_bytes == 0)
                         ipv4_tcp_syslog(LOG_ERR, "couldn't receive message after getting msg header");
+                    message[ctl_message.message_length] = 0;
 
                     ipv4_tcp_syslog(LOG_INFO, "message length: %zu", recv_bytes);
                     ipv4_tcp_syslog(LOG_INFO, "get message: %s", message);
@@ -52,7 +53,7 @@ void *tcp_server_handler(void *connection_socket)
                 case IPV4_SHELL_REQUEST_TYPE:
                 {
                     ipv4_tcp_syslog(LOG_INFO, "get shell request");
-                    handle_terminal_request(socket_fd, SOCK_STREAM, ctl_message.spare_buffer1);
+                    handle_terminal_request(socket_fd, SOCK_STREAM, ctl_message.spare_buffer1, secret);
 
                     break;
                 }
@@ -60,7 +61,7 @@ void *tcp_server_handler(void *connection_socket)
                 case IPV4_FILE_HEADER_TYPE:
                 {
                     ipv4_tcp_syslog(LOG_INFO, "get file \"%s\" to user \"%s\"", ctl_message.spare_buffer2, ctl_message.spare_buffer1);
-                    handle_file(socket_fd, SOCK_STREAM, ctl_message.message_length, ctl_message.spare_buffer1, ctl_message.spare_buffer2);
+                    handle_file(socket_fd, SOCK_STREAM, ctl_message.message_length, ctl_message.spare_buffer1, ctl_message.spare_buffer2, secret);
 
                     break;
                 }
@@ -68,7 +69,7 @@ void *tcp_server_handler(void *connection_socket)
                 case IPV4_USERS_LIST_REQUEST_TYPE:
                 {
                     ipv4_tcp_syslog(LOG_INFO, "get users list request");
-                    handle_users_list_request(socket_fd, SOCK_STREAM);
+                    handle_users_list_request(socket_fd, SOCK_STREAM, secret);
                     
                     break;
                 }
@@ -80,7 +81,11 @@ void *tcp_server_handler(void *connection_socket)
             memset(message, 0, sizeof(message));
         }
         else
+        {
             ipv4_tcp_syslog(LOG_ERR, "error while receiving requests");
+            break;
+        }
+            
     }
 
     void *retval = NULL;

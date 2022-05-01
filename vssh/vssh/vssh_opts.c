@@ -12,10 +12,14 @@
 #include <openssl/err.h>
 #include <openssl/dh.h>
 #include <openssl/engine.h>
+#include <openssl/aes.h>
+
+extern struct termios DEFAULT_TERM;
 
 static int SOCKET_FD = -1;
 static int CONNECTION_TYPE = -1;
 static pthread_t SENDER_THREAD;
+static unsigned char *KEY = NULL;
 
 extern const char *VSSH_RSA_PRIVATE_KEY_PATH;
 
@@ -43,21 +47,23 @@ int vssh_send_message(in_addr_t dest_ip, const char *message, size_t len, int co
     }
     
     unsigned char secret[IPV4_SPARE_BUFFER_LENGTH] = {0};
-    int secret_size = ipv4_execute_dh_protocol(socket_fd, secret, 0, VSSH_RSA_PRIVATE_KEY_PATH, connection_type);
+    int secret_size = ipv4_execute_DH_protocol(socket_fd, secret, 0, VSSH_RSA_PRIVATE_KEY_PATH, connection_type);
     if (secret_size <= 0)
     {
-        ipv4_close(socket_fd, connection_type);
-        return -1;
-    }
-    
-    ssize_t sent_bytes = ipv4_send_message(socket_fd, message, len, connection_type);
-    if (sent_bytes == -1 || sent_bytes == 0)
-    {
-        ipv4_close(socket_fd, connection_type);
+        close(socket_fd);
         return -1;
     }
 
-    return ipv4_close(socket_fd, connection_type);
+    size_t bytes_to_send = len > PACKET_DATA_SIZE ? PACKET_DATA_SIZE: len;
+
+    ssize_t sent_bytes = ipv4_send_message_secure(socket_fd, message, bytes_to_send, connection_type, secret);
+    if (sent_bytes == -1 || sent_bytes == 0)
+    {
+        ipv4_close_secure(socket_fd, connection_type, secret);
+        return -1;
+    }
+
+    return ipv4_close_secure(socket_fd, connection_type, secret);
 }
 
 int vssh_shell_request(in_addr_t dest_ip, int connection_type, char *username)
@@ -103,10 +109,18 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type, char *username)
         return -1;
     }
 
-    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_SHELL_REQUEST_TYPE, 0, NULL, 0, username, username_length, NULL, 0, connection_type);
+    unsigned char secret[IPV4_SPARE_BUFFER_LENGTH] = {0};
+    int secret_size = ipv4_execute_DH_protocol(socket_fd, secret, 0, VSSH_RSA_PRIVATE_KEY_PATH, connection_type);
+    if (secret_size <= 0)
+    {
+        close(socket_fd);
+        return -1;
+    }
+
+    int ctl_msg_state = ipv4_send_ctl_message_secure(socket_fd, IPV4_SHELL_REQUEST_TYPE, 0, NULL, 0, username, username_length, NULL, 0, connection_type, secret);
     if (ctl_msg_state == -1)
     {
-        fprintf(stderr, "ipv4_send_ctl_message() couldn't send message\n");
+        fprintf(stderr, "ipv4_send_ctl_message_secure() couldn't send message\n");
         ipv4_close(socket_fd, connection_type);
         return -1;
     }
@@ -114,6 +128,7 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type, char *username)
     CONNECTION_TYPE = connection_type;
     SOCKET_FD       = socket_fd;
     SENDER_THREAD   = pthread_self();
+    KEY             = secret;
     
     int old_type = 0;
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &old_type);
@@ -141,7 +156,9 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type, char *username)
             return -1;
         }
 
-        ssize_t sent_bytes = ipv4_send_message(socket_fd, buffer, read_cmd_bytes, connection_type);
+        size_t bytes_to_send = read_cmd_bytes > (PACKET_DATA_SIZE - AES_BLOCK_SIZE) ? (PACKET_DATA_SIZE - AES_BLOCK_SIZE) : read_cmd_bytes;
+
+        ssize_t sent_bytes = ipv4_send_message_secure(socket_fd, buffer, bytes_to_send, connection_type, secret);
         if (sent_bytes == -1 || sent_bytes == 0)
         {
             fprintf(stderr, "ipv4_send_message() couldn't sent message\n");
@@ -149,15 +166,12 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type, char *username)
             return -1;
         }
 
-        if (strcmp(buffer, "exit\n") == 0)
-            break;
-
         memset(buffer, 0, read_cmd_bytes + 1);
     }
 
     pthread_cancel(recv_thread);
 
-    return ipv4_close(socket_fd, connection_type);
+    return ipv4_close_secure(socket_fd, connection_type, secret);
 }
 
 static void *vssh_shell_receiver(void *arg)
@@ -165,41 +179,51 @@ static void *vssh_shell_receiver(void *arg)
     int old_type = 0;
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, &old_type);
 
-    char buffer[BUFSIZ + 1] = {0};
+    char buffer[PACKET_DATA_SIZE + 1] = {0};
     ipv4_ctl_message ctl_message = {0};
-    const char cancel_msg[] = {0x18, 0};
+    char cancel_sign = 0x18;
 
     fprintf(stderr, "\033[0;37m"); // gray
 
     while (1)
     {
-        ssize_t recv_bytes_ctl = ipv4_receive_message(SOCKET_FD, &ctl_message, sizeof(ipv4_ctl_message), CONNECTION_TYPE);
+        ssize_t recv_bytes_ctl = ipv4_receive_message_secure(SOCKET_FD, &ctl_message, sizeof(ipv4_ctl_message), CONNECTION_TYPE, KEY);
         if (recv_bytes_ctl == -1)
         {
-            fprintf(stderr, "ipv4_receive_message() couldn't receive message\n");
+            fprintf(stderr, "ipv4_receive_message_secure() couldn't receive message\n");
             pthread_exit(NULL);
         }
 
-        size_t bytes_to_read = ctl_message.message_length > BUFSIZ ? BUFSIZ: ctl_message.message_length;
+        if (ctl_message.message_type == IPV4_SHUTDOWN_TYPE)
+        {
+            char buffer[3] = {0x17, 0};
+            ipv4_send_message_secure(SOCKET_FD, buffer, 2, CONNECTION_TYPE, KEY);
+            ipv4_send_ctl_message_secure(SOCKET_FD, IPV4_SHUTDOWN_TYPE, 0, NULL, 0, NULL, 0, NULL, 0, CONNECTION_TYPE, KEY);
+            tcsetattr(STDIN_FILENO, TCSANOW, &DEFAULT_TERM);
 
-        ssize_t recv_bytes = ipv4_receive_message(SOCKET_FD, buffer, bytes_to_read, CONNECTION_TYPE);
+            exit(EXIT_SUCCESS);
+        }
+
+        ssize_t recv_bytes = ipv4_receive_message_secure(SOCKET_FD, buffer, ctl_message.message_length, CONNECTION_TYPE, KEY);
         if (recv_bytes == -1)
         {
-            fprintf(stderr, "ipv4_receive_message() couldn't receive message\n");
+            fprintf(stderr, "ipv4_receive_message_secure() couldn't receive message\n");
             pthread_exit(NULL);
         }
+        buffer[ctl_message.message_length] = 0;
 
-        if (strcmp(cancel_msg, buffer) == 0)
+        if (buffer[0] == cancel_sign)
         {
             pthread_cancel(SENDER_THREAD);
             fprintf(stderr, "Invalid password!\n");
-            ipv4_close(SOCKET_FD, CONNECTION_TYPE);
+            tcsetattr(STDIN_FILENO, TCSANOW, &DEFAULT_TERM);
+            ipv4_close_secure(SOCKET_FD, CONNECTION_TYPE, KEY);
 
             exit(EXIT_FAILURE);
         }
 
         fprintf(stderr, "%s", buffer);
-        memset(buffer, 0, bytes_to_read + 1);
+        memset(buffer, 0, ctl_message.message_length + 1);
     }
     
     return NULL;
@@ -310,38 +334,46 @@ int vssh_users_list_request(in_addr_t dest_ip, int connection_type)
         return -1;
     }
 
-    int ctl_msg_state = ipv4_send_ctl_message(socket_fd, IPV4_USERS_LIST_REQUEST_TYPE, 0, NULL, 0, NULL, 0, NULL, 0, connection_type);
-    if (ctl_msg_state == -1)
+    unsigned char secret[IPV4_SPARE_BUFFER_LENGTH] = {0};
+    int secret_size = ipv4_execute_DH_protocol(socket_fd, secret, 0, VSSH_RSA_PRIVATE_KEY_PATH, connection_type);
+    if (secret_size <= 0)
     {
-        fprintf(stderr, "ipv4_send_ctl_message() couldn't control message\n");
         ipv4_close(socket_fd, connection_type);
         return -1;
     }
 
-    ipv4_ctl_message ctl_message = {0};
-    char buffer[BUFSIZ + 1];
-
-    ssize_t recv_bytes_ctl = ipv4_receive_message(socket_fd, &ctl_message, sizeof(ipv4_ctl_message), connection_type);
-    if (recv_bytes_ctl == -1)
+    int ctl_msg_state = ipv4_send_ctl_message_secure(socket_fd, IPV4_USERS_LIST_REQUEST_TYPE, 0, NULL, 0, NULL, 0, NULL, 0, connection_type, secret);
+    if (ctl_msg_state == -1)
     {
-        fprintf(stderr, "ipv4_receive_message() couldn't receive message\n");
-        pthread_exit(NULL);
+        fprintf(stderr, "ipv4_send_ctl_message() couldn't control message\n");
+        ipv4_close_secure(socket_fd, connection_type, secret);
+        return -1;
     }
 
-    size_t bytes_to_read = ctl_message.message_length > BUFSIZ ? BUFSIZ: ctl_message.message_length;
+    ipv4_ctl_message ctl_message = {0};
+    char buffer[PACKET_DATA_SIZE + 1];
 
-    ssize_t recv_bytes = ipv4_receive_message(socket_fd, buffer, bytes_to_read, connection_type);
+    ssize_t recv_bytes_ctl = ipv4_receive_message_secure(socket_fd, &ctl_message, sizeof(ipv4_ctl_message), connection_type, secret);
+    if (recv_bytes_ctl == -1)
+    {
+        fprintf(stderr, "ipv4_receive_message_secure() couldn't receive message\n");
+        ipv4_close_secure(socket_fd, connection_type, secret);
+        return -1;
+    }
+    
+    ssize_t recv_bytes = ipv4_receive_message_secure(socket_fd, buffer, ctl_message.message_length, connection_type, secret);
     if (recv_bytes == -1)
     {
-        fprintf(stderr, "ipv4_receive_message() couldn't receive message\n");
-        pthread_exit(NULL);
+        fprintf(stderr, "ipv4_receive_message_secure() couldn't receive message\n");
+        ipv4_close_secure(socket_fd, connection_type, secret);
+        return -1;
     }
 
     fprintf(stderr, "\033[0;34m"); // green
     printf("All server users:\n"
            "%s\n", buffer);
 
-    return ipv4_close(socket_fd, connection_type);
+    return ipv4_close_secure(socket_fd, connection_type, secret);
 }
 
 int vssh_send_file(in_addr_t dest_ip, int connection_type, char *username, char *src_file, char *dest_path)
@@ -389,6 +421,14 @@ int vssh_send_file(in_addr_t dest_ip, int connection_type, char *username, char 
         return -1;
     }
 
+    unsigned char secret[IPV4_SPARE_BUFFER_LENGTH] = {0};
+    int secret_size = ipv4_execute_DH_protocol(socket_fd, secret, 0, VSSH_RSA_PRIVATE_KEY_PATH, connection_type);
+    if (secret_size <= 0)
+    {
+        close(socket_fd);
+        return -1;
+    }
+
     // Get ready to send file
     off_t file_size = get_file_size(src_file_fd);
 
@@ -396,7 +436,7 @@ int vssh_send_file(in_addr_t dest_ip, int connection_type, char *username, char 
     if (file_buffer == NULL)
     {
         fprintf(stderr, "malloc() error\n");
-        close(socket_fd);
+        ipv4_close_secure(socket_fd, connection_type, secret);
         close(src_file_fd);
         return -1;
     }
@@ -412,12 +452,12 @@ int vssh_send_file(in_addr_t dest_ip, int connection_type, char *username, char 
         perror("read");
         free(file_buffer);
         close(src_file_fd);
-        ipv4_close(socket_fd, connection_type);
+        ipv4_close_secure(socket_fd, connection_type, secret);
         return -1;
     }
 
-    ipv4_send_ctl_message(socket_fd, IPV4_FILE_HEADER_TYPE, file_size, NULL, 0,
-                          username, username_length, dest_path, dest_path_length, connection_type);
+    ipv4_send_ctl_message_secure(socket_fd, IPV4_FILE_HEADER_TYPE, file_size, NULL, 0,
+                                 username, username_length, dest_path, dest_path_length, connection_type, secret);
 
     char password_buffer[BUFSIZ + 1] = {0};
     ipv4_ctl_message ctl_message = {0};
@@ -428,71 +468,71 @@ int vssh_send_file(in_addr_t dest_ip, int connection_type, char *username, char 
     {
         perror("read() error");
         free(file_buffer);
-        ipv4_close(socket_fd, connection_type);
+        ipv4_close_secure(socket_fd, connection_type, secret);
         return -1;
     }
 
-    ssize_t sent_bytes = ipv4_send_message(socket_fd, password_buffer, read_cmd_bytes, connection_type);
+    ssize_t sent_bytes = ipv4_send_message_secure(socket_fd, password_buffer, read_cmd_bytes, connection_type, secret);
     if (sent_bytes == -1 || sent_bytes == 0)
     {
         fprintf(stderr, "ipv4_send_message() couldn't sent message\n");
         free(file_buffer);
         close(src_file_fd);
-        ipv4_close(socket_fd, connection_type);
+        ipv4_close_secure(socket_fd, connection_type, secret);
         return -1;
     }
 
     memset(password_buffer, 0, read_cmd_bytes + 1);
 
-    ssize_t recv_bytes_ctl = ipv4_receive_message(socket_fd, &ctl_message, sizeof(ipv4_ctl_message), connection_type);
+    ssize_t recv_bytes_ctl = ipv4_receive_message_secure(socket_fd, &ctl_message, sizeof(ipv4_ctl_message), connection_type, secret);
     if (recv_bytes_ctl == -1)
     {
         fprintf(stderr, "ipv4_receive_message() couldn't receive message\n");
         free(file_buffer);
         close(src_file_fd);
-        ipv4_close(socket_fd, connection_type);
+        ipv4_close_secure(socket_fd, connection_type, secret);
     }
 
     size_t bytes_to_read = ctl_message.message_length > BUFSIZ ? BUFSIZ: ctl_message.message_length;
 
-    ssize_t recv_bytes = ipv4_receive_message(socket_fd, password_buffer, bytes_to_read, connection_type);
+    ssize_t recv_bytes = ipv4_receive_message_secure(socket_fd, password_buffer, bytes_to_read, connection_type, secret);
     if (recv_bytes == -1)
     {
         fprintf(stderr, "ipv4_receive_message() couldn't receive message\n");
         free(file_buffer);
         close(src_file_fd);
-        ipv4_close(socket_fd, connection_type);
+        ipv4_close_secure(socket_fd, connection_type, secret);
     }
 
     // Check for respond
-    const char error_msg[]  = {0x17, 0};
-    const char cancel_msg[] = {0x18, 0};
-    const char file_send_request_msg[] = {0x19, 0};
+    const char error_msg = 0x17;
+    const char cancel_msg = 0x18;
+    const char file_send_request_msg = 0x19;
 
     sent_bytes = -1;
 
-    if (strcmp(cancel_msg, password_buffer) == 0)
+    if (password_buffer[0] == cancel_msg)
     {
         fprintf(stderr, "Invalid password!\n");
         free(file_buffer);
         close(src_file_fd);
-        ipv4_close(socket_fd, connection_type);
+        ipv4_close_secure(socket_fd, connection_type, secret);
         
         return -1;
     }
-    else if (strcmp(error_msg, password_buffer) == 0)
+    else if (password_buffer[0] == error_msg)
     {
         fprintf(stderr, "Error occured! See vsshd journal logs.\n");
         free(file_buffer);
         close(src_file_fd);
-        ipv4_close(socket_fd, connection_type);
+        ipv4_close_secure(socket_fd, connection_type, secret);
 
         return -1;
     }
-    else if (strcmp(file_send_request_msg, password_buffer) == 0)
+    else if (password_buffer[0] == file_send_request_msg)
     {
-        ipv4_send_buffer(socket_fd, file_buffer, file_size, IPV4_FILE_HEADER_TYPE, NULL, 0,
-                         username, username_length, dest_path, dest_path_length, connection_type);
+        ipv4_send_buffer_secure(socket_fd, file_buffer, file_size, IPV4_FILE_HEADER_TYPE, NULL, 0,
+                                username, username_length, dest_path, dest_path_length, connection_type, secret);
 
         free(file_buffer);
         fprintf(stdout, "Successfully sent!\n");
@@ -500,7 +540,7 @@ int vssh_send_file(in_addr_t dest_ip, int connection_type, char *username, char 
         close(src_file_fd);
     }
 
-    ipv4_close(socket_fd, connection_type);
+    ipv4_close_secure(socket_fd, connection_type, secret);
 
     return 0;
 }

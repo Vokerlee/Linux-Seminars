@@ -4,7 +4,9 @@
 #include <openssl/evp.h>
 #include <openssl/bio.h>
 #include <openssl/err.h>
+#include <openssl/aes.h>
 #include <stdio.h>
+#include <syslog.h>
 
 static RSA *create_RSA_filename(const char *filename, int is_public)
 {
@@ -110,3 +112,60 @@ int private_decrypt_RSA_filename(const unsigned char *encrypted_data, int data_l
 
     return RSA_private_decrypt(data_len, encrypted_data, decrypted_data, rsa, RSA_PKCS1_PADDING);
 }
+
+int encrypt_AES(const unsigned char *data, int data_len, unsigned char *encrypted_data, const unsigned char *key)
+{
+    int len = 0;
+    int encrypted_data_len = 0;
+    const unsigned char iv[] = "abdkdzZKnuih78n&";
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL)
+        return -1;
+
+    if (EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv) != 1)
+        return -1;
+
+    if (EVP_EncryptUpdate(ctx, encrypted_data, &len, data, data_len) != 1)
+        return -1;
+
+    encrypted_data_len = len;
+
+    if (EVP_EncryptFinal_ex(ctx, encrypted_data + len, &len) != 1)
+        return -1;
+    
+    encrypted_data_len += len;
+
+    EVP_CIPHER_CTX_free(ctx);
+
+    return encrypted_data_len;
+}
+
+int decrypt_AES(const unsigned char *encrypted_data, int encrypted_data_len, unsigned char *data, const unsigned char *key)
+{
+    int len = 0;
+    int data_len = 0;
+    const unsigned char iv[] = "abdkdzZKnuih78n&";
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    if (ctx == NULL)
+        return -1;
+
+    if (EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv) != 1)
+        return -1;
+
+    if (EVP_DecryptUpdate(ctx, data, &len, encrypted_data, encrypted_data_len) != 1)
+        return -1;
+
+    data_len = len;
+
+    if (EVP_DecryptFinal_ex(ctx, data + len, &len) != 1)
+        return -1;
+
+    data_len += len;
+
+    EVP_CIPHER_CTX_free(ctx);
+
+    return data_len;
+}
+

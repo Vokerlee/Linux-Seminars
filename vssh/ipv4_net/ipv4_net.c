@@ -9,6 +9,7 @@
 #include <openssl/dh.h>
 #include <openssl/bn.h>
 #include <openssl/engine.h>
+#include <openssl/aes.h>
 
 int ipv4_socket(int type, int optname)
 {
@@ -102,6 +103,8 @@ int ipv4_close(int socket_fd, int connection_type)
         return close(socket_fd);
     }
 }
+
+// Standart API
 
 int ipv4_send_ctl_message(int socket_fd, uint64_t msg_type, uint64_t msg_length, 
                           uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer1, size_t spare_buffer_size1,
@@ -311,7 +314,264 @@ ssize_t ipv4_receive_file(int socket_fd, int file_fd, size_t n_bytes, int connec
     return sent_bytes;
 }
 
-ssize_t ipv4_execute_dh_protocol(int socket_fd, unsigned char *secret, int is_initiator, const char *rsa_key_path, int connection_type)
+// Secured API
+
+int ipv4_send_ctl_message_secure(int socket_fd, uint64_t msg_type, uint64_t msg_length, 
+                                 uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer1, size_t spare_buffer_size1,
+                                 char *spare_buffer2, size_t spare_buffer_size2, int connection_type, unsigned char *key)
+{
+    if (spare_fields != NULL && spare_fields_size > IPV4_SPARE_FIELDS)
+        return -1;
+
+    if (spare_buffer1 != NULL && spare_buffer_size1 > IPV4_SPARE_BUFFER_LENGTH)
+        return -1;
+
+    if (spare_buffer2 != NULL && spare_buffer_size2 > IPV4_SPARE_BUFFER_LENGTH)
+        return -1;
+
+    ipv4_ctl_message message = {.message_type = msg_type, .message_length = msg_length};
+
+    if (spare_fields  != NULL)
+        memcpy(message.spare_fields, spare_fields, spare_fields_size * sizeof(spare_fields[0]));
+    if (spare_buffer1 != NULL)
+        memcpy(message.spare_buffer1, spare_buffer1, spare_buffer_size1 * sizeof(spare_buffer1[0]));
+    if (spare_buffer2 != NULL)
+        memcpy(message.spare_buffer2, spare_buffer2, spare_buffer_size2 * sizeof(spare_buffer2[0]));
+
+    unsigned char encrypted_message[sizeof(ipv4_ctl_message) + AES_BLOCK_SIZE];
+    int ciphertext_len = encrypt_AES((unsigned char *) &message, sizeof(ipv4_ctl_message), encrypted_message, key);
+
+    if (connection_type == SOCK_STREAM || connection_type == SOCK_DGRAM)
+        return send(socket_fd, encrypted_message, ciphertext_len, 0);
+    else if (connection_type == SOCK_STREAM_UDT)
+        return udt_send(socket_fd, (char *) encrypted_message, ciphertext_len);
+    else
+        return -1;
+}
+
+ssize_t ipv4_send_message_secure(int socket_fd, const void *buffer, size_t n_bytes, int connection_type, unsigned char *key)
+{
+    if (buffer == NULL)
+        return -1;
+
+    int ctl_msg_state = ipv4_send_ctl_message_secure(socket_fd, IPV4_MSG_HEADER_TYPE, n_bytes, NULL, 0, NULL, 0, NULL, 0, connection_type, key);
+    if (ctl_msg_state == -1)
+        return -1;
+
+    unsigned char *encrypted_buffer = malloc(n_bytes + AES_BLOCK_SIZE);
+    if (encrypted_buffer == NULL)
+        return -1;
+
+    int ciphertext_len = encrypt_AES(buffer, n_bytes, encrypted_buffer, key);
+
+    ssize_t send_state = -1;
+    if (connection_type == SOCK_STREAM || connection_type == SOCK_DGRAM)
+        send_state = send(socket_fd, encrypted_buffer, ciphertext_len, 0);
+    else if (connection_type == SOCK_STREAM_UDT)
+        send_state = udt_send(socket_fd, (char *) encrypted_buffer, ciphertext_len);
+    else
+    {
+        free(encrypted_buffer);
+        return -1;
+    }
+
+    free(encrypted_buffer);
+
+    return send_state;
+}
+
+ssize_t ipv4_receive_message_secure(int socket_fd, void *buffer, size_t n_bytes, int connection_type, unsigned char *key)
+{
+    if (buffer == NULL)
+        return -1;
+
+    ssize_t n_encrypted_bytes_rem = n_bytes % AES_BLOCK_SIZE;
+    ssize_t n_encrypted_bytes = n_bytes - n_encrypted_bytes_rem + AES_BLOCK_SIZE;
+
+    unsigned char *encrypted_buffer = malloc(n_encrypted_bytes);
+    if (encrypted_buffer == NULL)
+        return -1;
+
+    unsigned char *decrypted_buffer = malloc(n_encrypted_bytes);
+    if (decrypted_buffer == NULL)
+        return -1;
+
+    ssize_t read_state = -1;
+    if (connection_type == SOCK_STREAM || connection_type == SOCK_DGRAM)
+        read_state = read(socket_fd, encrypted_buffer, n_encrypted_bytes);
+    else if (connection_type == SOCK_STREAM_UDT)
+        read_state = udt_recv(socket_fd, (char *) encrypted_buffer, n_encrypted_bytes);
+    else
+    {
+        free(encrypted_buffer);
+        free(decrypted_buffer);
+        return -1;
+    }
+        
+    if (read_state == -1)
+        return -1;
+
+    int decryptedtext_len = decrypt_AES(encrypted_buffer, n_encrypted_bytes, decrypted_buffer, key);
+    memcpy(buffer, decrypted_buffer, n_bytes);
+    
+    free(encrypted_buffer);
+    free(decrypted_buffer);
+
+    return decryptedtext_len;
+}
+
+int ipv4_close_secure(int socket_fd, int connection_type, unsigned char *key)
+{
+    if (connection_type == SOCK_STREAM_UDT)
+        return udt_close(socket_fd);
+    else
+    {
+        int ctl_msg_state = ipv4_send_ctl_message_secure(socket_fd, IPV4_SHUTDOWN_TYPE, 0, NULL, 0, NULL, 0, NULL, 0, SOCK_STREAM, key);
+        if (ctl_msg_state == -1)
+        {
+            close(socket_fd);
+            return -1;
+        }
+
+        return close(socket_fd);
+    }
+}
+
+ssize_t ipv4_send_buffer_secure(int socket_fd, const void *buffer, size_t n_bytes, int msg_type,
+                                uint32_t *spare_fields, size_t spare_fields_size, char *spare_buffer1, size_t spare_buffer_size1,
+                                char *spare_buffer2, size_t spare_buffer_size2, int connection_type, unsigned char *key)
+{
+    if (buffer == NULL)
+        return -1;
+
+    if (connection_type != SOCK_STREAM && connection_type != SOCK_DGRAM && connection_type != SOCK_STREAM_UDT)
+        return -1;
+
+    if (msg_type == -1)
+        msg_type = IPV4_BUF_HEADER_TYPE;
+
+    int ctl_msg_state = ipv4_send_ctl_message_secure(socket_fd, msg_type, n_bytes, spare_fields, spare_fields_size, 
+                                                     spare_buffer1, spare_buffer_size1, spare_buffer2, spare_buffer_size2, connection_type, key);
+    if (ctl_msg_state == -1)
+        return -1;
+
+    ssize_t n_sent_bytes = 0;
+    size_t n_iters = n_bytes / (PACKET_DATA_SIZE - AES_BLOCK_SIZE);
+    size_t n_remaining_bytes = n_bytes % (PACKET_DATA_SIZE - AES_BLOCK_SIZE);
+    
+    const unsigned char *cur_pos = buffer;
+    unsigned char encrypted_buffer[PACKET_DATA_SIZE];
+
+    for (size_t i = 0; i < n_iters; ++i)
+    {
+        int ciphertext_len = encrypt_AES(cur_pos, PACKET_DATA_SIZE - AES_BLOCK_SIZE, encrypted_buffer, key);
+
+        ssize_t n_bytes = 0;
+        if (connection_type == SOCK_STREAM_UDT)
+            n_bytes = udt_send(socket_fd, (char *) encrypted_buffer, ciphertext_len);
+        else
+            n_bytes = send(socket_fd, encrypted_buffer, ciphertext_len, 0);
+
+        if (n_bytes <= 0)
+            return -1;
+
+        n_sent_bytes += PACKET_DATA_SIZE - AES_BLOCK_SIZE;
+        cur_pos      += PACKET_DATA_SIZE - AES_BLOCK_SIZE;
+    }
+
+    if (n_remaining_bytes > 0)
+    {
+        int ciphertext_len = encrypt_AES(cur_pos, n_remaining_bytes, encrypted_buffer, key);
+
+        ssize_t n_bytes = 0;
+        if (connection_type == SOCK_STREAM_UDT)
+            n_bytes = udt_send(socket_fd, (char *) encrypted_buffer, ciphertext_len);
+        else
+            n_bytes = send(socket_fd, encrypted_buffer, ciphertext_len, 0);
+
+        if (n_bytes <= 0)
+            return -1;
+
+        n_sent_bytes += n_remaining_bytes;
+    }
+
+    return n_sent_bytes;
+}
+
+ssize_t ipv4_receive_buffer_secure(int socket_fd, void *buffer, size_t n_bytes, int connection_type, unsigned char *key)
+{
+    if (buffer == NULL)
+        return -1;
+
+    if (connection_type != SOCK_STREAM && connection_type != SOCK_DGRAM && connection_type != SOCK_STREAM_UDT)
+        return -1;
+
+    ssize_t n_recv_bytes = 0;
+    size_t n_iters = n_bytes / (PACKET_DATA_SIZE - AES_BLOCK_SIZE);
+    size_t n_remaining_bytes = n_bytes % (PACKET_DATA_SIZE - AES_BLOCK_SIZE);
+
+    char unsigned *cur_pos = buffer;
+    unsigned char encrypted_buffer[PACKET_DATA_SIZE];
+    unsigned char decrypted_buffer[PACKET_DATA_SIZE];
+
+    ssize_t n_encrypted_bytes_rem = (PACKET_DATA_SIZE - AES_BLOCK_SIZE) % AES_BLOCK_SIZE;
+    ssize_t n_encrypted_bytes = PACKET_DATA_SIZE - n_encrypted_bytes_rem;
+
+    ssize_t n_last_encrypted_bytes_rem = n_remaining_bytes % AES_BLOCK_SIZE;
+    ssize_t n_last_encrypted_bytes =  n_remaining_bytes - n_last_encrypted_bytes_rem + AES_BLOCK_SIZE;
+
+    for (size_t i = 0; i < n_iters; ++i)
+    {
+        ssize_t n_bytes = 0;
+        if (connection_type == SOCK_STREAM_UDT)
+            n_bytes = udt_recv(socket_fd, (char *) encrypted_buffer, n_encrypted_bytes);
+        else
+            n_bytes = read(socket_fd, encrypted_buffer, n_encrypted_bytes);
+
+        if (n_bytes <= 0)
+            return -1;
+
+        int encryptedtext_len = decrypt_AES(encrypted_buffer, n_encrypted_bytes, decrypted_buffer, key);
+        if (encryptedtext_len == -1)
+        {
+            syslog(LOG_ERR, "decrypt error");
+            return -1;
+        }
+
+        memcpy(cur_pos, decrypted_buffer, PACKET_DATA_SIZE - AES_BLOCK_SIZE);
+
+        n_recv_bytes += PACKET_DATA_SIZE - AES_BLOCK_SIZE;
+        cur_pos      += PACKET_DATA_SIZE - AES_BLOCK_SIZE;
+    }
+
+    if (n_remaining_bytes > 0)
+    {
+        ssize_t n_bytes = 0;
+        if (connection_type == SOCK_STREAM_UDT)
+            n_bytes = udt_recv(socket_fd, (char *) encrypted_buffer, n_last_encrypted_bytes);
+        else
+            n_bytes = read(socket_fd, encrypted_buffer, n_last_encrypted_bytes);
+
+        if (n_bytes <= 0)
+            return -1;
+
+        int encryptedtext_len = decrypt_AES(encrypted_buffer, n_last_encrypted_bytes, decrypted_buffer, key);
+        if (encryptedtext_len == -1)
+        {
+            syslog(LOG_ERR, "decrypt error");
+            return -1;
+        }
+
+        memcpy(cur_pos, decrypted_buffer, n_remaining_bytes);
+
+        n_recv_bytes += n_remaining_bytes;
+    }
+
+    return n_recv_bytes;
+}
+
+
+ssize_t ipv4_execute_DH_protocol(int socket_fd, unsigned char *secret, int is_initiator, const char *rsa_key_path, int connection_type)
 {
     if (secret == NULL)
         return -1;

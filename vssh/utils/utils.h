@@ -29,4 +29,7 @@ int private_encrypt_RSA_filename (const unsigned char *data,           int data_
 int public_decrypt_RSA_filename  (const unsigned char *encrypted_data, int data_len, unsigned char *decrypted_data, const char *key_filename);
 int private_decrypt_RSA_filename (const unsigned char *encrypted_data, int data_len, unsigned char *decrypted_data, const char *key_filename);
 
+int encrypt_AES(const unsigned char *data, int data_len, unsigned char *encrypted_data, const unsigned char *key);
+int decrypt_AES(const unsigned char *encrypted_data, int encrypted_data_len, unsigned char *data, const unsigned char *key);
+
 #endif // !NET_UTILS_H_
