@@ -570,7 +570,6 @@ ssize_t ipv4_receive_buffer_secure(int socket_fd, void *buffer, size_t n_bytes, 
     return n_recv_bytes;
 }
 
-
 ssize_t ipv4_execute_DH_protocol(int socket_fd, unsigned char *secret, int is_initiator, const char *rsa_key_path, int connection_type)
 {
     if (secret == NULL)

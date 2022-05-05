@@ -80,19 +80,19 @@ int vssh_shell_request(in_addr_t dest_ip, int connection_type, char *username)
     }
 
     struct termios term;
-	if (tcgetattr(STDIN_FILENO, &term) == -1)
+    if (tcgetattr(STDIN_FILENO, &term) == -1)
     {
-		perror("tcgetattr()");
-		return -1;
-	}
+        perror("tcgetattr()");
+        return -1;
+    }
 
     cfmakeraw(&term);
 
-	if (tcsetattr(STDIN_FILENO, TCSANOW, &term) == -1)
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &term) == -1)
     {
-		perror("tcsetattr()");
-		return -1;
-	}
+        perror("tcsetattr()");
+        return -1;
+    }
 
     int socket_fd = ipv4_socket(socket_type, SO_REUSEADDR);
     if (socket_fd == -1)
@@ -240,29 +240,29 @@ int vssh_send_broadcast_request()
     }
 
     int optval = 1;
-	int error = setsockopt(socket_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval));
-	if (error == -1)
-	{
-		perror("setsockopt()");
-		close(socket_fd);
-		return -1;
-	}
+    int error = setsockopt(socket_fd, SOL_SOCKET, SO_BROADCAST, &optval, sizeof(optval));
+    if (error == -1)
+    {
+        perror("setsockopt()");
+        close(socket_fd);
+        return -1;
+    }
 
     // Binding to own socket
     int bind_state = ipv4_bind(socket_fd, INADDR_ANY, htons(SSH_BROADCAST_PORT), SOCK_DGRAM, NULL);
-	if (bind_state == -1)
-	{
-		perror("ipv4_bind()");
-		close(socket_fd);
-		return -1;
-	}
+    if (bind_state == -1)
+    {
+        perror("ipv4_bind()");
+        close(socket_fd);
+        return -1;
+    }
 
     struct sockaddr_in broadcast_addr = {0};
     socklen_t length = sizeof(struct sockaddr_in);
 
-	broadcast_addr.sin_family = AF_INET;
-	broadcast_addr.sin_port = htons(SSH_SERVER_PORT);
-	broadcast_addr.sin_addr.s_addr = INADDR_BROADCAST;
+    broadcast_addr.sin_family = AF_INET;
+    broadcast_addr.sin_port = htons(SSH_SERVER_PORT);
+    broadcast_addr.sin_addr.s_addr = INADDR_BROADCAST;
 
     ipv4_ctl_message message = {.message_type = IPV4_BROADCAST_TYPE, .message_length = 0};
     
@@ -270,18 +270,18 @@ int vssh_send_broadcast_request()
     if (ctl_send_state == -1)
     {
         fprintf(stderr, "sendto() error");
-		close(socket_fd);
-		return -1;
+        close(socket_fd);
+        return -1;
     }
 
-	struct timeval tv = {.tv_sec = SSH_SECONDS_TIMEOUT_BROADCAST, .tv_usec = SSH_USECONDS_TIMEOUT_BROADCAST};
-	int sockopt_state = setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
-	if (sockopt_state == -1)
-	{
-		perror("setsockopt()");
-		close(socket_fd);
-		return -1;
-	}
+    struct timeval tv = {.tv_sec = SSH_SECONDS_TIMEOUT_BROADCAST, .tv_usec = SSH_USECONDS_TIMEOUT_BROADCAST};
+    int sockopt_state = setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, (struct timeval *) &tv, sizeof(struct timeval));
+    if (sockopt_state == -1)
+    {
+        perror("setsockopt()");
+        close(socket_fd);
+        return -1;
+    }
 
     char received_msg[PACKET_DATA_SIZE + 1] = {0};
     struct sockaddr_in accept_addr = {0};
@@ -291,22 +291,22 @@ int vssh_send_broadcast_request()
 
     size_t n_servers = 1;
 
-	while (1)
-	{
-		memset(received_msg, 0, sizeof(received_msg));
+    while (1)
+    {
+        memset(received_msg, 0, sizeof(received_msg));
 
-		ssize_t n_received_bytes = recvfrom(socket_fd, received_msg, sizeof(received_msg), 0, (struct sockaddr *) &accept_addr, &length);
-		if (n_received_bytes == -1 && errno != EWOULDBLOCK && errno != EAGAIN)
-		{
-			perror("recvfrom()");
-			close(socket_fd);
-			return -1;
-		}
-		else if (n_received_bytes == -1)
-			break;
+        ssize_t n_received_bytes = recvfrom(socket_fd, received_msg, sizeof(received_msg), 0, (struct sockaddr *) &accept_addr, &length);
+        if (n_received_bytes == -1 && errno != EWOULDBLOCK && errno != EAGAIN)
+        {
+            perror("recvfrom()");
+            close(socket_fd);
+            return -1;
+        }
+        else if (n_received_bytes == -1)
+            break;
 
-		fprintf(stderr, "%zu) IP = %s, port = %d!\n", n_servers++, inet_ntoa(accept_addr.sin_addr), (int) ntohs(accept_addr.sin_port));
-	}
+        fprintf(stderr, "%zu) IP = %s, port = %d!\n", n_servers++, inet_ntoa(accept_addr.sin_addr), (int) ntohs(accept_addr.sin_port));
+    }
 
     close(socket_fd);
 

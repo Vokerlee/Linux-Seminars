@@ -13,11 +13,11 @@ int main(int argc, char *argv[])
     closelog();
 
 
-	if (tcgetattr(STDIN_FILENO, &DEFAULT_TERM) == -1)
+    if (tcgetattr(STDIN_FILENO, &DEFAULT_TERM) == -1)
     {
-		perror("tcgetattr()");
-		return EXIT_FAILURE;
-	}
+        perror("tcgetattr()");
+        return EXIT_FAILURE;
+    }
 
     if (argc < 2)
         errx(EX_USAGE, "Error: too few arguments\n"
@@ -25,11 +25,11 @@ int main(int argc, char *argv[])
 
     int return_value = vssh_handle_arguments(argc, argv);
 
-	if (tcsetattr(STDIN_FILENO, TCSANOW, &DEFAULT_TERM) == -1)
+    if (tcsetattr(STDIN_FILENO, TCSANOW, &DEFAULT_TERM) == -1)
     {
-		perror("tcsetattr()");
-		return EXIT_FAILURE;
-	}
+        perror("tcsetattr()");
+        return EXIT_FAILURE;
+    }
 
     return return_value;
 }
