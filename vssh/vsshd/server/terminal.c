@@ -1,5 +1,7 @@
 #include "server.h"
 
+#define _GNU_SOURCE
+#include <sched.h>
 #include <stdlib.h>
 #include <termios.h>
 #include <pwd.h>
@@ -176,6 +178,12 @@ int handle_terminal_request(int socket_fd, int connection_type, char *username, 
         }
 
         if (write_pid_to_vsshd_cgroup(getpid()) == -1)
+        {
+            fprintf(stderr, "%c", 0x18);
+            exit(EXIT_FAILURE);
+        }
+
+        if (unshare(CLONE_NEWIPC) == -1)
         {
             fprintf(stderr, "%c", 0x18);
             exit(EXIT_FAILURE);

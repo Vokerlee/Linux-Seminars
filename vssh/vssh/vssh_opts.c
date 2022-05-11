@@ -215,7 +215,7 @@ static void *vssh_shell_receiver(void *arg)
         if (buffer[0] == cancel_sign)
         {
             pthread_cancel(SENDER_THREAD);
-            fprintf(stderr, "Invalid password!\n");
+            fprintf(stderr, "Password is invalid or server error occured!\n");
             tcsetattr(STDIN_FILENO, TCSANOW, &DEFAULT_TERM);
             ipv4_close_secure(SOCKET_FD, CONNECTION_TYPE, KEY);
 
