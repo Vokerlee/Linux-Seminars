@@ -26,8 +26,8 @@
 enum connection_type
 {
     UDP_CONNECT = 33,
-	TCP_CONNECT = 34,
-	UNKNOWN     = 1
+    TCP_CONNECT = 34,
+    UNKNOWN     = 1
 };
 
 #define USING_PORT 15000
