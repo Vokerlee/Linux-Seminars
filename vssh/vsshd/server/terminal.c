@@ -13,12 +13,18 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
+#include <dirent.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 static int SOCKET_FD = -1;
 static int MASTER_FD = -1;
 static int CONNECTION_TYPE = -1;
 static unsigned char *KEY = NULL;
 static pid_t BASH_PID = -2;
+static const char *VSSH_CGROUP_PATH       = "/sys/fs/cgroup/vsshd";
+static const char *VSSH_CGROUP_PROCS_PATH = "/sys/fs/cgroup/vsshd/cgroup.procs";
 
 static struct pam_conv conv =
 {
@@ -28,7 +34,37 @@ static struct pam_conv conv =
 
 int handle_terminal_commands(int socket_fd, int master_fd, int connection_type, unsigned char *key);
 static void *handle_terminal_sender(void *arg);
+static int write_pid_to_vsshd_cgroup(pid_t pid_to_write);
 int login_into_user(char *username);
+
+int write_pid_to_vsshd_cgroup(pid_t pid_to_write)
+{
+    char buffer[BUFSIZ] = {0};
+    sprintf(buffer, "%ld\n", (long) pid_to_write);
+
+    int error_state = 0;
+
+    DIR* dir = opendir(VSSH_CGROUP_PATH);
+    if (dir)
+        closedir(dir);
+    else if (ENOENT == errno)
+        error_state = mkdir(VSSH_CGROUP_PATH, 0755);
+    else
+        return -1;
+
+    if (error_state != 0)
+        return error_state;
+
+    int cgroup_fd = open(VSSH_CGROUP_PROCS_PATH, O_RDWR);
+    if (cgroup_fd == -1)
+        return -1;
+
+    ssize_t n_written_bytes = write(cgroup_fd, buffer, strlen(buffer));
+    if (n_written_bytes == -1)
+        return -1;
+
+    return 0;
+}
 
 int handle_terminal_request(int socket_fd, int connection_type, char *username, unsigned char *key)
 {
@@ -134,6 +170,12 @@ int handle_terminal_request(int socket_fd, int connection_type, char *username, 
 
         int login_state = login_into_user(username);
         if (login_state == -1)
+        {
+            fprintf(stderr, "%c", 0x18);
+            exit(EXIT_FAILURE);
+        }
+
+        if (write_pid_to_vsshd_cgroup(getpid()) == -1)
         {
             fprintf(stderr, "%c", 0x18);
             exit(EXIT_FAILURE);
