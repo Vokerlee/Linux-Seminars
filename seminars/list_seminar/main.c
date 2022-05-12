@@ -35,7 +35,4 @@ int main()
         printf("%s\n", kek_iterator->stuff);
     }
 
-
-    
-
 }

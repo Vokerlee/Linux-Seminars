@@ -87,8 +87,8 @@ static inline void list_del(list_head *entry)
 
 static inline void list_del_init(list_head *entry)
 {
-	list_del_entry__(entry);
-	INIT_LIST_HEAD(entry);
+    list_del_entry__(entry);
+    INIT_LIST_HEAD(entry);
 }
 
 static inline int list_empty(const list_head *head)
@@ -98,90 +98,90 @@ static inline int list_empty(const list_head *head)
 
 static inline int list_empty_careful(const list_head *head)
 {
-	list_head *next = head->next_;
-	return (next == head) && (next == head->prev_);
+    list_head *next = head->next_;
+    return (next == head) && (next == head->prev_);
 }
 
 static inline void list_replace(list_head *old, list_head *new)
 {
-	new->next_ = old->next_;
-	new->next_->prev_ = new;
-	new->prev_ = old->prev_;
-	new->prev_->next_ = new;
+    new->next_ = old->next_;
+    new->next_->prev_ = new;
+    new->prev_ = old->prev_;
+    new->prev_->next_ = new;
 }
 
 static inline void list_replace_init(list_head *old, list_head *new)
 {
-	list_replace(old, new);
-	INIT_LIST_HEAD(old);
+    list_replace(old, new);
+    INIT_LIST_HEAD(old);
 }
 
 static inline void list_swap(list_head *entry1, list_head *entry2)
 {
-	list_head *pos = entry2->prev_;
+    list_head *pos = entry2->prev_;
 
-	list_del(entry2);
-	list_replace(entry1, entry2);
+    list_del(entry2);
+    list_replace(entry1, entry2);
 
-	if (pos == entry1)
-		pos = entry2;
+    if (pos == entry1)
+        pos = entry2;
 
-	list_add(pos, entry1);
+    list_add(pos, entry1);
 }
 
 static inline int list_is_first(const list_head *list, const list_head *head)
 {
-	return list->prev_ == head;
+    return list->prev_ == head;
 }
 
 static inline int list_is_last(const list_head *list, const list_head *head)
 {
-	return list->next_ == head;
+    return list->next_ == head;
 }
 
 static inline void list_move(list_head *list, list_head *head)
 {
-	list_del_entry__(list);
-	list_add(head, list);
+    list_del_entry__(list);
+    list_add(head, list);
 }
 
 static inline void list_move_tail(list_head *list, list_head *head)
 {
-	list_del_entry__(list);
-	list_add_tail(head, list);
+    list_del_entry__(list);
+    list_add_tail(head, list);
 }
 
 static inline void list_bulk_move_tail(list_head *head, list_head *first, list_head *last)
 {
-	first->prev_->next_ = last->next_;
-	last->next_->prev_ = first->prev_;
+    first->prev_->next_ = last->next_;
+    last->next_->prev_ = first->prev_;
 
-	head->prev_->next_ = first;
-	first->prev_ = head->prev_;
+    head->prev_->next_ = first;
+    first->prev_ = head->prev_;
 
-	last->next_ = head;
-	head->prev_ = last;
+    last->next_ = head;
+    head->prev_ = last;
 }
 
 static inline void list_rotate_left(list_head *head)
 {
-	list_head *first = NULL;
+    list_head *first = NULL;
 
-	if (!list_empty(head))
+    if (!list_empty(head))
     {
-		first = head->next_;
-		list_move_tail(head, first);
-	}
+        first = head->next_;
+        list_move_tail(head, first);
+    }
 }
 
 static inline void list_rotate_to_front(list_head *list, list_head *head)
 {
-	list_move_tail(head, list);
+    list_move_tail(head, list);
 }
 
 static inline int list_is_singular(const list_head *head)
 {
-	return !list_empty(head) && (head->next_ == head->prev_);
+    return !list_empty(head) && (head->next_ == head->prev_);
 }
 
 #endif // !__LIST__H___
