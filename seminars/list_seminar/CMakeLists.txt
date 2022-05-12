@@ -4,7 +4,7 @@
 cmake_minimum_required (VERSION 3.8)
 
 # PROJECT PROPERTIES
-project ("Broadcast seminar" LANGUAGES C)
+project ("List seminar" LANGUAGES C)
 
 #########################################################################
 
@@ -15,35 +15,17 @@ if(NOT CMAKE_C_EXTENSIONS)
 endif()
 
 add_compile_options(
-    -Werror
-
     -Wall
     -Wextra
-    -Wpedantic
 )
 
 #########################################################################
 
-# EXECUTABLE FILE PROPERTIES
+# TEST STUFF
 
-set(RECEIVER_FILE_NAME "receiver")
-set(SENDER_FILE_NAME "sender")
+set(LIST_TEST_NAME "list_test")
 
-set(HEADERS
-        net.h
-)
-
-set(RECEIVER_SOURCES
-        broadcast_receiver.c
-)
-
-set(SENDER_SOURCES
-        broadcast_sender.c
-)
-
-# EXECUTABLE FILE
-
-add_executable(${RECEIVER_FILE_NAME} ${RECEIVER_SOURCES})
-add_executable(${SENDER_FILE_NAME} ${SENDER_SOURCES})
+add_executable(${LIST_TEST_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/main.c)
+target_link_libraries(${LIST_TEST_NAME} PRIVATE ${LIST_LIBRARY_NAME})
 
 #########################################################################
